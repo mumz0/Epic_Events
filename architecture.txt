@@ -1,0 +1,36 @@
+epic_events/
+├── src/
+│   ├── __init__.py
+│   ├── models/
+│   │   ├── __init__.py
+│   │   ├── client.py
+│   │   ├── contract.py
+│   │   ├── event.py
+│   │   ├── role.py
+│   │   └── user.py
+│   ├── views/
+│   │   ├── __init__.py
+│   │   ├── client_view.py
+│   │   ├── contract_view.py
+│   │   ├── event_view.py
+│   │   └── user_view.py
+│   ├── controllers/
+│   │   ├── __init__.py
+│   │   ├── client_controller.py
+│   │   ├── contract_controller.py
+│   │   ├── event_controller.py
+│   │   └── user_controller.py
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── client_service.py
+│   │   ├── contract_service.py
+│   │   ├── event_service.py
+│   │   └── user_service.py
+├── main.py
+├── poetry.lock
+├── pyproject.toml
+├── README.md
+└── config/
+    ├── __init__.py
+    ├── settings.py
+    └── logging_config.py
