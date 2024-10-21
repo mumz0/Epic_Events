@@ -68,7 +68,7 @@ class BaseRepository:
         """
         return session.query(self.model).all()
 
-    def update(self, instance_id, data, session):
+    def update_obj(self, instance_id, data, session):
         """
         Updates an instance with the provided data.
 
@@ -84,6 +84,29 @@ class BaseRepository:
         instance = session.query(self.model).get(instance_id)
         for key, value in data.items():
             setattr(instance, key, value)
+        session.commit()
+        return instance
+
+    def update_attr(self, instance_id, attribute_name, value, session):
+        """
+        Updates a single attribute of an instance with the provided value.
+
+        :param instance_id: The ID of the instance to update.
+        :type instance_id: int
+        :param attribute_name: The name of the attribute to update.
+        :type attribute_name: str
+        :param value: The value to set for the attribute.
+        :type value: any
+        :param session: The database session.
+        :type session: Session
+        :return: The updated instance.
+        :rtype: object
+        """
+        instance = session.query(self.model).get(instance_id)
+        if not instance:
+            raise ValueError(f"Instance with ID {instance_id} not found.")
+
+        setattr(instance, attribute_name, value)
         session.commit()
         return instance
 

@@ -20,3 +20,14 @@ class RoleRepository(BaseRepository):
         :type Role: class
         """
         super().__init__(Role)
+
+    def get_all(self, session):
+        """
+        Retrieves all roles except the 'admin' role from the database.
+
+        :param session: The database session.
+        :type session: Session
+        :return: A list of roles excluding the 'admin' role.
+        :rtype: list
+        """
+        return session.query(Role).filter(Role.name != "admin").all()

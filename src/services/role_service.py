@@ -22,3 +22,12 @@ class RoleService(BaseService):
         """
         repository = RoleRepository()
         super().__init__(Role, repository)
+
+    def get_all(self, session):
+        """
+        Retrieves all Role entities from the repository.
+
+        :return: A list of all Role entities.
+        :rtype: list
+        """
+        return self.repository.get_all(session)
