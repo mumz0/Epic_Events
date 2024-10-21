@@ -1,7 +1,8 @@
 """This file defines the UserController class for handling user-related operations."""
 
 from src.models.role import Role
-from src.services.user_service import UserService
+from src.services.auth_service import AuthService
+from src.views.auth_view import AuthView
 
 
 class UserController:
@@ -16,6 +17,6 @@ class UserController:
         :param session_obj: The database session object.
         :type session_obj: Session
         """
-        admin_role = session_obj.query(Role).filter(Role.name == "admin").first()
-        admin_user_data = {"email_address": "", "password": "adminpassword", "role": admin_role}
-        UserService().create(admin_user_data, session_obj)
+        admin_role = session_obj.query(Role).filter_by(name="admin").first()
+        email, password = AuthView().signup_admin()
+        AuthService(None).signup_process(email, password, admin_role, session_obj)

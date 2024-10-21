@@ -3,6 +3,8 @@ This module defines the BaseService class which provides basic services for inte
 """
 
 from src.repositories.base_repository import BaseRepository
+from src.repositories.permission_repository import PermissionRepository
+from src.repositories.role_repository import RoleRepository
 
 
 class BaseService:
@@ -80,6 +82,8 @@ class BaseService:
         :return: A list of all instances of the model.
         :rtype: list
         """
+        if isinstance(self.repository, (RoleRepository, PermissionRepository)):
+            raise PermissionError("Access to this method is not allowed.")
         return self.repository.get_all(session)
 
     def update(self, instance_id, data, session):
@@ -95,7 +99,7 @@ class BaseService:
         :return: The updated instance of the model.
         :rtype: object
         """
-        return self.repository.update(instance_id, data, session)
+        return self.repository.update_obj(instance_id, data, session)
 
     def delete(self, instance_id, session):
         """

@@ -27,7 +27,8 @@ class User(Base):
     __tablename__ = "user"
 
     id = Column(Integer, primary_key=True)
-    email_address = Column(String)
-    password = Column(String)
+    email_address = Column(String, unique=True, nullable=False)
+    password = Column(String, nullable=False)
+    token = Column(String, nullable=True)
     role_id = Column(Integer, ForeignKey("role.id"))
     role = relationship("Role", back_populates="users")

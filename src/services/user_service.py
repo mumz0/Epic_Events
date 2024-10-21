@@ -22,3 +22,19 @@ class UserService(BaseService):
         """
         repository = UserRepository()
         super().__init__(User, repository)
+
+    def get_user(self, email: str, session) -> bool:
+        """
+        Authenticate user against the database.
+
+        :param email: The user's email.
+        :type email: str
+        :param password: The user's password.
+        :type password: str
+        :param session: The SQLAlchemy session.
+        :type session: Session
+        :return: True if authentication is successful, False otherwise.
+        :rtype: bool
+        """
+        user = self.repository.find_by_email(email, session)
+        return user
