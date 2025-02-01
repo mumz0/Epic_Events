@@ -38,3 +38,17 @@ class UserService(BaseService):
         """
         user = self.repository.find_by_email(email, session)
         return user
+
+    def list_to_dict(self, user_list):
+        """
+        Converts a list of User objects to a dictionary.
+
+        :param user_list: A list of User objects.
+        :type user_list: list
+        :return: A dictionary of User objects.
+        :rtype: dict
+        """
+        user_dict = {}
+        for user in user_list:
+            user_dict["Email address"] = user.email_address
+        return user_dict
