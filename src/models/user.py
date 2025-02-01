@@ -40,7 +40,7 @@ class User(Base):
         :return: A dictionary representation of the User object.
         :rtype: dict
         """
-        return {"id": self.id, "email_address": self.email_address, "role": self.role.name}
+        return {"Email address": self.email_address, "Role": self.role.name}
 
     def get_identifier(self):
         """

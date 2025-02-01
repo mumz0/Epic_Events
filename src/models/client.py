@@ -42,3 +42,29 @@ class Client(Base):
     sales_contact_id = Column(Integer, ForeignKey("user.id"), nullable=False)
 
     sales_contact = relationship("User", backref="clients")
+
+    # TODO: modify to include sales_contact_id name or email address
+    def to_dict(self):
+        """
+        Converts the User object to a dictionary.
+
+        :return: A dictionary representation of the User object.
+        :rtype: dict
+        """
+        return {
+            "Email address": self.email,
+            "Phone": self.phone,
+            "Compagny": self.compagny,
+            "Creation date": self.creation_date,
+            "Last update": self.last_update,
+            "Sales contact": self.sales_contact_id,
+        }
+
+    def get_identifier(self):
+        """
+        Retrieve the identifier for the user.
+
+        :return: The email address of the user.
+        :rtype: str
+        """
+        return self.email
