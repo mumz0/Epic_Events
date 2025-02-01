@@ -1,6 +1,9 @@
+# pylint: disable=W0612
 """
 PaginatedView is a class that provides a paginated view of a list of items using the urwid library.
 """
+
+from venv import logger
 
 import urwid
 
@@ -32,7 +35,7 @@ class PaginatedView(BaseView):
         self.title = title
         self.search_edit = urwid.Edit("Search: ")
 
-    def handle_search_change(self, new_edit_text):
+    def handle_search_change(self, edit, new_edit_text):
         """
         Update the items list by filtering against the provided search text and reset pagination.
 
@@ -41,6 +44,8 @@ class PaginatedView(BaseView):
         :param new_edit_text: The new text input for the search query.
         :type new_edit_text: str
         """
+        logger.info("edit: %s", edit)
+        logger.info("new_edit_text: %s", new_edit_text)
         search_query = new_edit_text
         self.items = [item for item in self.original_items if search_query.lower() in str(item).lower()]
         self.page = 0
@@ -84,7 +89,7 @@ class PaginatedView(BaseView):
         body.append(self.create_button("Next", on_press=self.next_page))
         list_box = urwid.ListBox(urwid.SimpleFocusListWalker(body))
         framed_layout = urwid.Frame(urwid.Padding(list_box, left=2, right=2))
-        return framed_layout
+        return framed_layout, buttons
 
     def previous_page(self):
         """
@@ -116,5 +121,5 @@ class PaginatedView(BaseView):
         :func:`display_page`, then refreshes the screen to reflect any changes.
 
         """
-        self.loop.widget = self.display_page(self.page)
+        self.loop.widget, buttons = self.display_page(self.page)
         self.loop.draw_screen()

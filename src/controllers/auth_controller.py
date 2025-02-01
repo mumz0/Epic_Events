@@ -1,3 +1,4 @@
+# pylint: disable=W0104
 """
     This module contains the AuthController class, which is responsible for handling the authentication process.
 """
@@ -6,6 +7,7 @@ import urwid
 
 from logger_file import logger
 from src.controllers.base_controller import BaseController
+from src.controllers.client_controller import ClientController
 from src.controllers.user_controller import UserController
 from src.services.auth_service import AuthService
 
@@ -59,7 +61,7 @@ class AuthController(BaseController):
                     "> Home",
                     [
                         ("Users", UserController(self.session, self.base_view, self.current_user, self.history).all_users),
-                        ("Clients", None),
+                        ("Clients", ClientController(self.session, self.base_view, self.current_user, self.history).all_clients),
                         ("Contracts", None),
                         ("Events", None),
                     ],
@@ -84,7 +86,8 @@ class AuthController(BaseController):
         self.current_user = AuthService(self.current_user).signin_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), self.session
         )
-        redirect_func()
+        logger.info("redirect_func: %S", redirect_func)
+        redirect_func
 
     def authentication_process(self):
         """
