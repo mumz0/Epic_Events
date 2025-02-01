@@ -3,10 +3,10 @@
 """
 
 from dotenv import load_dotenv
-from logging_config import setup_logging
 
 from database_config.settings import database_manager
 from src.controllers.main_controller import MainController
+from src.views.base_view import BaseView
 
 load_dotenv()
 
@@ -15,10 +15,9 @@ def main():
     """
     Initializes the database and the main controller, then runs the application.
     """
-    setup_logging()
     database_manager.initialize_and_populate_database()
-    main_controller = MainController(database_manager.session)
-    main_controller.run_application()
+    base_view = BaseView()
+    MainController(database_manager.session, base_view, None, []).run_application()
 
 
 if __name__ == "__main__":

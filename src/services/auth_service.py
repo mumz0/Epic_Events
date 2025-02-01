@@ -9,6 +9,7 @@ import jwt
 from cryptography.fernet import Fernet
 from passlib.hash import argon2
 
+from logger_file import logger
 from src.models.user import User
 from src.repositories.user_repository import UserRepository
 from src.services.base_service import BaseService
@@ -58,6 +59,7 @@ class AuthService(BaseService):
         """
         user_data = {"email_address": email, "password": argon2.hash(password), "role": role}
         user = UserService().create(user_data, session)
+        logger.info("User: %s", user)
         if user:
             print("User created successfully.")
             return user
@@ -78,6 +80,7 @@ class AuthService(BaseService):
         :rtype: User or None
         """
         user = UserService().get_user(email, session)
+        logger.info("User: %s", user)
         if not user or not argon2.verify(password, user.password):
             return None
 
