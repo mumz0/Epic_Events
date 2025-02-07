@@ -83,10 +83,18 @@ class PaginatedView(BaseView):
         body.append(urwid.Divider())
 
         body.append(urwid.Text(f"Page {page + 1}/{self.total_pages}"))
-        buttons = [self.create_button(str(item)) for item in items]
-        body.extend(buttons)
-        body.append(self.create_button("Previous", on_press=self.previous_page))
-        body.append(self.create_button("Next", on_press=self.next_page))
+        buttons_items = [self.create_button(str(item)) for item in items]
+        body.extend(buttons_items)
+        previous_button = self.create_button("Previous")
+        next_button = self.create_button("Next")
+        create_button = self.create_button("Create new")
+        body.append(previous_button)
+        body.append(next_button)
+        # TODO: Add permission condition
+        # Créez un bouton de création d'utilisateur
+        body.append(urwid.Divider())
+        body.append(create_button)
+        buttons = {"buttons_items": buttons_items, "previous_button": previous_button, "next_button": next_button, "create_button": create_button}
         list_box = urwid.ListBox(urwid.SimpleFocusListWalker(body))
         framed_layout = urwid.Frame(urwid.Padding(list_box, left=2, right=2))
         return framed_layout, buttons

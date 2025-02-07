@@ -26,6 +26,17 @@ class BaseView:
         self.ascii_art = Ascii().epic_events()
         self.loop = None
 
+    def admin_signup_view(self):
+        """
+        Admin signup view that prompts the user for email and password, returning them as a tuple.
+
+        :returns: A tuple containing the user's email and password.
+        :rtype: tuple
+        """
+        email_edit = input("Email: ")
+        password_edit = input("Password: ")
+        return email_edit, password_edit
+
     def init_main_loop(self, layout, unhandled_input):
         """
         Initialize the main loop for the application.
@@ -55,7 +66,7 @@ class BaseView:
         self.loop.screen.clear()
         self.loop.draw_screen()
 
-    def create_button(self, label: str, on_press=None):
+    def create_button(self, label: str):
         """
         Create a button with the given label and optional on_press callback.
 
@@ -67,8 +78,6 @@ class BaseView:
         :rtype: urwid.Button
         """
         button = urwid.Button(label)
-        if on_press:
-            urwid.connect_signal(button, "click", on_press)
         return button
 
     def clear_screen(self):

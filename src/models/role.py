@@ -24,7 +24,7 @@ class Role(Base):
 
     __tablename__ = "role"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
+    id = Column(Integer, unique=True)
+    name = Column(String, primary_key=True, unique=True)
     users = relationship("User", back_populates="role")
     permissions = relationship("Permission", secondary="role_permission", backref="roles")

@@ -9,7 +9,9 @@ from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.client_controller import ClientController
 from src.controllers.user_controller import UserController
+from src.models.role import Role
 from src.services.auth_service import AuthService
+from src.views.base_view import BaseView
 
 
 class AuthController(BaseController):
@@ -21,6 +23,17 @@ class AuthController(BaseController):
         super().__init__(session, base_view, current_user, history)
         logger.info("AuthController: %s", self.session)
         self.current_user = None
+
+    def create_admin_user(self, session_obj):
+        """
+        Creates an admin user with a predefined password and admin role.
+
+        :param session_obj: The database session object.
+        :type session_obj: Session
+        """
+        admin_role = session_obj.query(Role).filter_by(name="admin").first()
+        email, password = BaseView().admin_signup_view()
+        AuthService(None).signup_process(email, password, admin_role, session_obj)
 
     # def signup(self):
     #     """Handles the signup process for a new user."""
@@ -86,7 +99,7 @@ class AuthController(BaseController):
         self.current_user = AuthService(self.current_user).signin_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), self.session
         )
-        logger.info("redirect_func: %S", redirect_func)
+        # logger.info("redirect_func: %S", redirect_func)
         redirect_func
 
     def authentication_process(self):

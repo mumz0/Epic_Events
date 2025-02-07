@@ -73,6 +73,19 @@ class BaseService:
         """
         return self.repository.get(instance_id, session)
 
+    def get_id(self, instance_name, session):
+        """
+        Retrieves an instance of the model by its name.
+
+        :param instance_name: The name of the model instance.
+        :type instance_name: str
+        :param session: The database session.
+        :type session: Session
+        :return: The instance of the model if found, otherwise None.
+        :rtype: object or None
+        """
+        return self.repository.get_id(instance_name, session)
+
     def get_all(self, session):
         """
         Retrieves all instances of the model.

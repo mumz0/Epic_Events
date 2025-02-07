@@ -2,9 +2,20 @@
 Ce module définit la classe ContractStatus qui représente le statut d'un contrat dans la base de données.
 """
 
-from sqlalchemy import Column, Integer, String
+from enum import Enum as PyEnum
+
+from sqlalchemy import Column, Enum, Integer
 
 from src.models.base import Base
+
+
+class ContractStatusEnum(PyEnum):
+    """
+    This enumeration defines possible statuses a contract can have.
+    """
+
+    PENDING = "Pending"
+    SIGNED = "Signed"
 
 
 class ContractStatus(Base):
@@ -22,4 +33,4 @@ class ContractStatus(Base):
     id = Column(Integer, primary_key=True)
 
     # pending, signed
-    name = Column(String, nullable=False)
+    name = Column(Enum(ContractStatusEnum), nullable=False)

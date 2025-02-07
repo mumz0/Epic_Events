@@ -39,6 +39,20 @@ class UserService(BaseService):
         user = self.repository.find_by_email(email, session)
         return user
 
+    def create_user(self, data, session):
+        """
+        Creates and persists an instance of the model with the given data.
+
+        :param data: The data to initialize the model instance.
+        :type data: dict
+        :param session: The database session.
+        :type session: Session
+        :return: The persisted instance of the model.
+        :rtype: object
+        """
+        instance = self.model(**data)
+        return self.repository.add(instance, session)
+
     def list_to_dict(self, user_list):
         """
         Converts a list of User objects to a dictionary.
