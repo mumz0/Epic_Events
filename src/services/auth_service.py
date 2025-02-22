@@ -10,7 +10,6 @@ from cryptography.fernet import Fernet
 from passlib.hash import argon2
 
 from logger_file import logger
-from src.models.role import Role
 from src.models.user import User
 from src.repositories.user_repository import UserRepository
 from src.services.base_service import BaseService
@@ -58,16 +57,20 @@ class AuthService(BaseService):
         :return: The created user or None if creation fails.
         :rtype: User or None
         """
+        # Vérifier si l'utilisateur existe déjà
+        existing_user = session.query(User).filter_by(email_address=email).first()
+        if existing_user:
+            logger.info("User with email %s already exists.", email)
+            return True
 
-        role_instance = BaseService(Role).get_id(role, session)
-        user_data = {"email_address": email, "password": argon2.hash(password), "role": role_instance}
+        user_data = {"email_address": email, "password": argon2.hash(password), "role_id": role}
         user = BaseService(User).create(user_data, session)
         logger.info("User: %s", user)
         if user:
             logger.info("User created successfully.")
-            return user
+            return True
         logger.info("User creation failed.")
-        return None
+        return False
 
     def signin_process(self, email: str, password: str, session):
         """

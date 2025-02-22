@@ -5,6 +5,7 @@ import urwid
 
 from logger_file import logger
 from src.controllers.base_controller import BaseController
+from src.models.user import User
 from src.repositories.user_repository import UserRepository
 from src.services.auth_service import AuthService
 from src.services.base_service import BaseService
@@ -39,7 +40,7 @@ class UserController(BaseController):
         This method retrieves all user objects from the database, converts them to a dictionary format,
         and displays them in a paginated view. It also sets up the necessary signals for user interaction.
         """
-        user_objects = BaseService(self.current_user, UserRepository()).get_all(self.session)
+        user_objects = UserRepository().get_all(self.session)
         user_list_dict = UserService().list_to_dict(user_objects)
         logger.info("All users: %s", user_list_dict)
         paginated_view = PaginatedView(user_list_dict, "> Home > Users")
@@ -51,6 +52,7 @@ class UserController(BaseController):
         logger.info("items: %s", paginated_view.items)
         self.history.append(layout)
         self.base_view.update_screen(layout)
+        logger.info("History:  Menu (%s)", len(self.history))
 
     def create_paginated_buttons_signal(self, paginated_view, buttons, user_objects):
         """
@@ -70,12 +72,32 @@ class UserController(BaseController):
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button: self.object_details_layout(f"Home > Users > {button.get_label()}", button.get_label(), user_objects),
+                lambda button=button: self.object_details_layout(f"Home > Users > {button.get_label()}", button.get_label(), user_objects, self),
             )
         urwid.connect_signal(buttons["previous_button"], "click", lambda button=button: paginated_view.previous_page())
         urwid.connect_signal(buttons["next_button"], "click", lambda button=button: paginated_view.next_page())
         # if buttons["create_button"] is not None:
         urwid.connect_signal(buttons["create_button"], "click", lambda button=button: self.user_creation())
+
+    def create_details_view_buttons_signal(self, buttons, user_object):
+        """
+        Connect signals to details view buttons for modifying or deleting a user.
+
+        :param buttons: A dictionary of buttons with keys like 'modify_button' and 'delete_button'.
+        :type buttons: dict
+        :param user_object: The user object related to the details view.
+        :type user_object: User
+        """
+        logger.info("Creating details view buttons signal")
+        user_template_dict = user_object.to_dict()
+        urwid.connect_signal(
+            buttons["modify_button"],
+            "click",
+            lambda button: self.pre_filled_form_page(
+                f"Home > Users > {user_object.email_address} > Modify", user_template_dict, user_object, UserService()
+            ),
+        )
+        urwid.connect_signal(buttons["delete_button"], "click", lambda button: self.show_delete_confirmation(user_object, BaseService(User)))
 
     def user_creation(self):
         """
@@ -99,7 +121,7 @@ class UserController(BaseController):
             "click",
             lambda button: self.handle_user_creation_button_event(layout_dict),
         )
-        self.history.append(layout_dict["layout"])
+
         self.base_view.update_screen(layout_dict["layout"])
         logger.info("Create User view")
         logger.info(self.base_view.loop)
@@ -123,7 +145,12 @@ class UserController(BaseController):
             layout_dict["edits"][2].get_edit_text(),
         )
 
-        AuthService(self.current_user).signup_process(
+        response = AuthService(self.current_user).signup_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), layout_dict["edits"][2].get_edit_text(), self.session
         )
         # TODO: Add redirect fonction after user creation
+        if response:
+            self.history.pop()
+            self.base_view.update_screen(self.history[-1])
+        else:
+            logger.info("User creation failed")

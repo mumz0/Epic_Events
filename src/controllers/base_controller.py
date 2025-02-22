@@ -65,7 +65,7 @@ class BaseController:
         no_button = urwid.Button("No")
 
         urwid.connect_signal(yes_button, "click", lambda button: self.handle_exit_click())
-        urwid.connect_signal(no_button, "click", lambda button: self.remove_popup())
+        urwid.connect_signal(no_button, "click", lambda button: self.cancel_popup())
 
         pile = urwid.Pile([urwid.Text("Do you really want to exit?"), urwid.Columns([yes_button, no_button])])
 
@@ -84,12 +84,22 @@ class BaseController:
         self.base_view.loop.widget = popup
         self.base_view.update_screen(self.base_view.loop.widget)
 
+    def cancel_popup(self):
+        """
+        Removes the pop-up and returns to the previous screen.
+        """
+        logger.info("History: %s", self.history)
+        if self.history:
+            self.history.pop()
+            self.base_view.update_screen(self.history[-1])
+
     def remove_popup(self):
         """
         Removes the pop-up and returns to the previous screen.
         """
         if self.history:
-            self.base_view.loop.widget = self.history.pop()
+            for _ in range(2):
+                self.history.pop()
             self.base_view.update_screen(self.history[-1])
 
     def handle_button_pressed(self, func):
@@ -130,6 +140,7 @@ class BaseController:
         :param menu_items: A list of tuples where each tuple contains a label and a function to be called when the menu item is selected.
         :type menu_items: list of (str, callable)
         """
+
         logger.info(f"Displaying {title} menu")
         labels = [item[0] for item in menu_items]
         buttons, layout = self.base_view.create_menu_layout(title, labels)
@@ -145,8 +156,9 @@ class BaseController:
         logger.info("Home" in title)
         logger.info("Not adding to history")
         self.base_view.update_screen(layout)
+        logger.info("History:  Menu (%s)", len(self.history))
 
-    def object_details_layout(self, title, item_label, objects_lst):
+    def object_details_layout(self, title, item_label, objects_lst, controller):
         """
         Creates and displays the layout for object details.
         :param title: The title of the object details frame.
@@ -156,6 +168,7 @@ class BaseController:
         :param objects_lst: The list of objects to search for the item.
         :type objects_lst: list
         """
+        logger.info("History: %s", self.history)
         logger.info("Found label: %s", item_label)
         selected_object = None
         for obj in objects_lst:
@@ -163,6 +176,69 @@ class BaseController:
                 logger.info("Found object: %s", obj.id)
                 selected_object = obj
                 break
-        frame = self.base_view.create_object_details_frame(title, selected_object)
+        frame, buttons = self.base_view.create_object_details_frame(title, selected_object)
+        controller.create_details_view_buttons_signal(buttons, selected_object)
         self.history.append(frame)
         self.base_view.update_screen(frame)
+        logger.info("History:  obj details (%s)", len(self.history))
+
+    def pre_filled_form_page(self, title, object_template, obj, service):
+        """
+        Create a pre-filled form page with the given object template and title.
+        :param object_template: The template object to pre-fill the form fields.
+        :type object_template: dict
+        :param title: The title of the form page.
+        :type title: str
+        """
+        logger.info("Creating pre-filled form page")
+        logger.info("History: %s", self.history)
+        logger.info("Object template: %s", object_template)
+        layout_dict = self.base_view.create_pre_filled_form_page(object_template, title)
+        logger.info("Layout type: %s", type(layout_dict["layout"]))
+        urwid.connect_signal(layout_dict["buttons"], "click", lambda button: self.handle_save_button(layout_dict["edits"], obj, service))
+        # self.history.append(layout_dict["layout"])
+        self.base_view.update_screen(layout_dict["layout"])
+
+    def handle_save_button(self, edit_labels, obj, service):
+        """
+        Save the changes made to the object.
+        """
+        data = {}
+        for edit in edit_labels:
+            label = edit.caption.strip(": ")
+            edit_text = edit.get_edit_text()
+            data[label] = edit_text
+            logger.info("edit.get_edit_text(): %s", edit_text)
+        service.prepare_data_and_update(data, obj, self.session)
+        self.history.pop()
+        self.history.pop()
+        self.base_view.update_screen(self.history[0])
+
+    def show_delete_confirmation(self, obj, service):
+        """
+        Displays a pop-up asking for delete confirmation.
+
+        :param delete_func: The function to call if the user confirms the deletion.
+        :type delete_func: callable
+        """
+        logger.info("History: %s", self.history)
+        layout, buttons = self.base_view.create_delete_confirmation_popup_layout()
+
+        urwid.connect_signal(buttons[0], "click", lambda button: self.handle_confirmation_delete(obj.id, service))
+        urwid.connect_signal(buttons[1], "click", lambda button: self.cancel_popup())
+
+        # self.history.append(layout)
+        self.base_view.update_screen(layout)
+
+    def handle_confirmation_delete(self, object_id, service):
+        """
+        Handles the confirmation of the deletion of an object.
+
+        :param object_id: The ID of the object to be deleted.
+        :type object_id: int
+        :param service: The service to handle the deletion.
+        :type service: BaseService
+        """
+        logger.info("History: %s", self.history)
+        service.delete(object_id, self.session)
+        self.remove_popup()

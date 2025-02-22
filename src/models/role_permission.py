@@ -22,5 +22,5 @@ class RolePermission(Base):
     __tablename__ = "role_permission"
 
     id = Column(Integer, primary_key=True)
-    role = Column("role_id", Integer, ForeignKey("role.id"))
+    role = Column("role_name", Integer, ForeignKey("role.name"))
     permission = Column("permission_id", Integer, ForeignKey("permission.id"))

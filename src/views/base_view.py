@@ -35,6 +35,7 @@ class BaseView:
         """
         email_edit = input("Email: ")
         password_edit = input("Password: ")
+        logger.info("email_edit, password_edit, %s, %s", email_edit, password_edit)
         return email_edit, password_edit
 
     def init_main_loop(self, layout, unhandled_input):
@@ -229,11 +230,64 @@ class BaseView:
             no card will be generated.
         :return: A frame widget containing the header and the object's details.
         """
-        card = urwid.Text("")  # Initialisation par défaut
+        card = urwid.Text("")
         if selected_object:
             card = self.create_card(selected_object)
 
         header_body = self.create_header_body(title)
         body = header_body + [card]
+        modify_button = self.create_button("Modify")
+        delete_button = self.create_button("Delete")
+        body.append(modify_button)
+        body.append(delete_button)
         frame = self.create_frame(body)
-        return frame
+        buttons = {"modify_button": modify_button, "delete_button": delete_button}
+        return frame, buttons
+
+    def create_pre_filled_form_page(self, object_template, title):
+        """
+        Create a pre-filled form page with the given object template and title.
+
+        :param object_template: The template object to pre-fill the form fields.
+        :type object_template: dict
+        :param title: The title of the form page.
+        :type title: str
+        :return: A tuple containing the layout and the button.
+        :rtype: tuple
+        """
+        header_body = self.create_header_body(title)
+
+        edit_widgets = []
+        for key, value in object_template.items():
+            edit_widgets.append(urwid.Edit(f"{key}: ", str(value)))
+
+        save_button = urwid.Button("Save")
+        body = header_body + edit_widgets + [urwid.Divider(), save_button]
+        list_box = urwid.ListBox(urwid.SimpleFocusListWalker(body))
+        frame = urwid.Frame(body=list_box)
+        layout_dict = {"edits": edit_widgets, "buttons": save_button, "layout": frame}
+        return layout_dict
+
+    def create_delete_confirmation_popup_layout(self):
+        """
+        Create a confirmation popup layout to confirm item deletion.
+        """
+        yes_button = urwid.Button("Yes")
+        no_button = urwid.Button("No")
+        buttons = [yes_button, no_button]
+        pile = urwid.Pile(
+            [
+                urwid.Text("Do you really want to delete this item?"),
+                urwid.Columns([yes_button, no_button]),
+            ]
+        )
+
+        popup = urwid.Overlay(
+            urwid.LineBox(pile),
+            self.loop.widget,
+            align="center",
+            width=("relative", 50),
+            valign="middle",
+            height=("relative", 20),
+        )
+        return popup, buttons

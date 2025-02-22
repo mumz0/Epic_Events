@@ -96,7 +96,8 @@ class BaseRepository:
         """
         instance = session.query(self.model).get(instance_id)
         for key, value in data.items():
-            setattr(instance, key, value)
+            if hasattr(instance, key):
+                setattr(instance, key, value)
         session.commit()
         return instance
 

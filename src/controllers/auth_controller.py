@@ -4,12 +4,13 @@
 """
 
 import urwid
+from sqlalchemy.orm.exc import NoResultFound
 
 from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.client_controller import ClientController
 from src.controllers.user_controller import UserController
-from src.models.role import Role
+from src.models.role import Role, RoleEnum
 from src.services.auth_service import AuthService
 from src.views.base_view import BaseView
 
@@ -24,16 +25,22 @@ class AuthController(BaseController):
         logger.info("AuthController: %s", self.session)
         self.current_user = None
 
-    def create_admin_user(self, session_obj):
+    @staticmethod
+    def create_admin_user(session):
         """
         Creates an admin user with a predefined password and admin role.
 
         :param session_obj: The database session object.
         :type session_obj: Session
         """
-        admin_role = session_obj.query(Role).filter_by(name="admin").first()
+        try:
+            admin_role_obj = session.query(Role).filter_by(name=RoleEnum.ADMIN.value).first()
+        except NoResultFound:
+            logger.info("Role not found.")
+
+        logger.info("admin_role: %s", admin_role_obj)
         email, password = BaseView().admin_signup_view()
-        AuthService(None).signup_process(email, password, admin_role, session_obj)
+        AuthService(None).signup_process(email, password, admin_role_obj.name, session)
 
     # def signup(self):
     #     """Handles the signup process for a new user."""

@@ -31,3 +31,16 @@ class RoleRepository(BaseRepository):
         :rtype: list
         """
         return session.query(Role).filter(Role.name != "admin").all()
+
+    def get_by_name(self, name, session):
+        """
+        Retrieves a Role from the database by its name.
+
+        :param name: The name of the role.
+        :type name: str
+        :param session: The database session.
+        :type session: Session
+        :return: A Role object if found, otherwise None.
+        :rtype: Role | None
+        """
+        return session.query(Role).filter_by(name=name).first()

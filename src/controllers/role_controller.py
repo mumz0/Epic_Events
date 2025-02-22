@@ -1,5 +1,7 @@
 """This file defines the RoleController class for handling role-related operations."""
 
+from logger_file import logger
+from src.models.role import RoleEnum
 from src.services.role_service import RoleService
 
 
@@ -33,7 +35,8 @@ class RoleController:
         :return: The created admin role.
         :rtype: Role
         """
-        admin_role_data = {"name": "admin", "permissions": permission_obj_lst}
+        admin_role_data = {"name": RoleEnum.ADMIN.value, "permissions": permission_obj_lst}
+        logger.info(admin_role_data["name"])
         return RoleService().create(admin_role_data, session_obj)
 
     def create_management_role(self, permission_obj_lst, session_obj):
@@ -55,7 +58,7 @@ class RoleController:
             if is_read_action or is_user_entity or is_create_contract or is_modify_contract:
                 management_permission_lst.append(permission)
 
-        management_role_data = {"name": "management", "permissions": management_permission_lst}
+        management_role_data = {"name": RoleEnum.MANAGEMENT.value, "permissions": management_permission_lst}
         RoleService().create(management_role_data, session_obj)
 
     def create_sales_role(self, permission_obj_lst, session_obj):
@@ -86,7 +89,7 @@ class RoleController:
             if is_read_action or is_create_client or is_modify_client or is_create_event or is_modify_contract:
                 sales_permission_lst.append(permission)
 
-        sales_role_data = {"name": "sales", "permissions": sales_permission_lst}
+        sales_role_data = {"name": RoleEnum.SALES.value, "permissions": sales_permission_lst}
         RoleService().create(sales_role_data, session_obj)
 
     def create_support_role(self, permission_obj_lst, session_obj):
@@ -105,5 +108,5 @@ class RoleController:
             if (permission.action == "read") or (permission.action == "modify" and permission.entity == "event"):
                 support_permissions_lst.append(permission)
 
-        support_role_data = {"name": "support", "permissions": support_permissions_lst}
+        support_role_data = {"name": RoleEnum.SUPPORT.value, "permissions": support_permissions_lst}
         RoleService().create(support_role_data, session_obj)

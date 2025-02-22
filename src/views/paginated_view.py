@@ -3,10 +3,9 @@
 PaginatedView is a class that provides a paginated view of a list of items using the urwid library.
 """
 
-from venv import logger
-
 import urwid
 
+from logger_file import logger
 from src.views.base_view import BaseView
 
 
@@ -83,15 +82,15 @@ class PaginatedView(BaseView):
         body.append(urwid.Divider())
 
         body.append(urwid.Text(f"Page {page + 1}/{self.total_pages}"))
-        buttons_items = [self.create_button(str(item)) for item in items]
+        buttons_items = [self.create_button(item["Email address"]) for item in items]
         body.extend(buttons_items)
         previous_button = self.create_button("Previous")
         next_button = self.create_button("Next")
         create_button = self.create_button("Create new")
         body.append(previous_button)
         body.append(next_button)
+
         # TODO: Add permission condition
-        # Créez un bouton de création d'utilisateur
         body.append(urwid.Divider())
         body.append(create_button)
         buttons = {"buttons_items": buttons_items, "previous_button": previous_button, "next_button": next_button, "create_button": create_button}
