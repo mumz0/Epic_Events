@@ -219,7 +219,7 @@ class BaseView:
         card = urwid.Filler(pile, valign="top")
         return card
 
-    def create_object_details_frame(self, title, selected_object):
+    def create_object_details_frame(self, title, selected_object, buttons_labels):
         """
         Create a frame displaying details for a given object.
         This method first creates a card for the selected object (if provided),
@@ -236,12 +236,13 @@ class BaseView:
 
         header_body = self.create_header_body(title)
         body = header_body + [card]
-        modify_button = self.create_button("Modify")
-        delete_button = self.create_button("Delete")
-        body.append(modify_button)
-        body.append(delete_button)
+        buttons = []
+        for button_label in buttons_labels["buttons_label"]:
+            button = self.create_button(button_label)
+            buttons.append(button)
+            body.append(button)
         frame = self.create_frame(body)
-        buttons = {"modify_button": modify_button, "delete_button": delete_button}
+        # buttons = {"modify_button": buttons[0], "delete_button": buttons[1]}
         return frame, buttons
 
     def create_pre_filled_form_page(self, object_template, title):

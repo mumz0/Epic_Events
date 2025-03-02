@@ -36,7 +36,7 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    email = Column(String)
+    email_address = Column(String)
     phone = Column(String)
     compagny = Column(String)
     creation_date = Column(DateTime, default=datetime.datetime.now())
@@ -55,7 +55,7 @@ class Client(Base):
         """
         return {
             "Name": self.name,
-            "Email address": self.email,
+            "Email address": self.email_address,
             "Phone": self.phone,
             "Compagny": self.compagny,
             "Creation date": self.creation_date,
@@ -70,4 +70,4 @@ class Client(Base):
         :return: The email address of the user.
         :rtype: str
         """
-        return self.email
+        return self.email_address

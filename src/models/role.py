@@ -44,7 +44,7 @@ class Role(Base):
     permissions = relationship("Permission", secondary="role_permission", backref="roles")
 
     @validates("name")
-    def validate_name(self, name):
+    def validate_name(self, _key, name):
         """
         Validates the name of the role.
 

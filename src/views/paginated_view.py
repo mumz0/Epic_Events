@@ -5,7 +5,6 @@ PaginatedView is a class that provides a paginated view of a list of items using
 
 import urwid
 
-from logger_file import logger
 from src.views.base_view import BaseView
 
 
@@ -32,24 +31,7 @@ class PaginatedView(BaseView):
         self.page = 0
         self.total_pages = (len(self.items) + items_per_page - 1) // items_per_page
         self.title = title
-        self.search_edit = urwid.Edit("Search: ")
-
-    def handle_search_change(self, edit, new_edit_text):
-        """
-        Update the items list by filtering against the provided search text and reset pagination.
-
-        :param edit: The text editing object (currently unused).
-        :type edit: Any
-        :param new_edit_text: The new text input for the search query.
-        :type new_edit_text: str
-        """
-        logger.info("edit: %s", edit)
-        logger.info("new_edit_text: %s", new_edit_text)
-        search_query = new_edit_text
-        self.items = [item for item in self.original_items if search_query.lower() in str(item).lower()]
-        self.page = 0
-        self.total_pages = (len(self.items) + self.items_per_page - 1) // self.items_per_page
-        self.update_view()
+        self.buttons_label_dict = None
 
     def get_page(self, page):
         """
@@ -64,7 +46,7 @@ class PaginatedView(BaseView):
         end = start + self.items_per_page
         return self.items[start:end]
 
-    def display_page(self, page):
+    def display_page(self, page, buttons_label_dict=None):
         """
         Displays a paginated view within a user interface.
         :param page: The current page index to display.
@@ -72,28 +54,25 @@ class PaginatedView(BaseView):
         :returns: A tuple where the first element is the framed layout to render, and the second is a list of button widgets.
         :rtype: Tuple[urwid.Frame, List[urwid.Widget]]
         """
+        if buttons_label_dict:
+            self.buttons_label_dict = buttons_label_dict  # Store buttons_label_dict
+
         items = self.get_page(page)
         title_widget = urwid.LineBox(urwid.Padding(urwid.Text(self.title, align="left"), left=2, right=4))
         body = [urwid.Text(self.ascii_art, align="center"), title_widget, urwid.Divider()]
 
-        # Ajouter le champ de recherche sans cadre
-        search_box = urwid.Padding(self.search_edit, left=2, right=2)
-        body.append(search_box)
-        body.append(urwid.Divider())
-
         body.append(urwid.Text(f"Page {page + 1}/{self.total_pages}"))
-        buttons_items = [self.create_button(item["Email address"]) for item in items]
+        buttons_items = [self.create_button(buttons_label) for buttons_label in self.buttons_label_dict["users_label"]]
         body.extend(buttons_items)
-        previous_button = self.create_button("Previous")
-        next_button = self.create_button("Next")
-        create_button = self.create_button("Create new")
-        body.append(previous_button)
-        body.append(next_button)
+
+        buttons = []
+        for button_label in self.buttons_label_dict["buttons"]:
+            button = self.create_button(button_label)
+            buttons.append(button)
+            body.append(button)
 
         # TODO: Add permission condition
-        body.append(urwid.Divider())
-        body.append(create_button)
-        buttons = {"buttons_items": buttons_items, "previous_button": previous_button, "next_button": next_button, "create_button": create_button}
+        buttons = {"buttons_items": buttons_items, "other_buttons": buttons}
         list_box = urwid.ListBox(urwid.SimpleFocusListWalker(body))
         framed_layout = urwid.Frame(urwid.Padding(list_box, left=2, right=2))
         return framed_layout, buttons
@@ -128,5 +107,5 @@ class PaginatedView(BaseView):
         :func:`display_page`, then refreshes the screen to reflect any changes.
 
         """
-        self.loop.widget, buttons = self.display_page(self.page)
+        self.loop.widget, buttons = self.display_page(self.page, self.buttons_label_dict)
         self.loop.draw_screen()

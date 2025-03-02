@@ -7,6 +7,7 @@ import sys
 import urwid
 
 from logger_file import logger
+from src.models.contract import Contract
 
 
 class BaseController:
@@ -158,7 +159,7 @@ class BaseController:
         self.base_view.update_screen(layout)
         logger.info("History:  Menu (%s)", len(self.history))
 
-    def object_details_layout(self, title, item_label, objects_lst, controller):
+    def object_details_layout(self, title, item_label, objects_lst, controller, buttons_labels):
         """
         Creates and displays the layout for object details.
         :param title: The title of the object details frame.
@@ -168,15 +169,22 @@ class BaseController:
         :param objects_lst: The list of objects to search for the item.
         :type objects_lst: list
         """
+        logger.info("object_details_layout function")
+        logger.info("Current user: %s", self.current_user)
         logger.info("History: %s", self.history)
         logger.info("Found label: %s", item_label)
         selected_object = None
         for obj in objects_lst:
+            logger.info("Object: %s", obj)
+            logger.info("Object identifier: %s", obj.get_identifier())
+            logger.info(item_label)
             if obj.get_identifier() == item_label:
                 logger.info("Found object: %s", obj.id)
                 selected_object = obj
+            elif obj.id == item_label:
+                selected_object = obj
                 break
-        frame, buttons = self.base_view.create_object_details_frame(title, selected_object)
+        frame, buttons = self.base_view.create_object_details_frame(title, selected_object, buttons_labels)
         controller.create_details_view_buttons_signal(buttons, selected_object)
         self.history.append(frame)
         self.base_view.update_screen(frame)
@@ -242,3 +250,21 @@ class BaseController:
         logger.info("History: %s", self.history)
         service.delete(object_id, self.session)
         self.remove_popup()
+
+    def get_button_data_for_items(self, objs):
+        """
+        Create buttons labels for each item based on its type.
+
+        :param items: List of items to create buttons for.
+        :type items: list
+        :return: List of buttons.
+        :rtype: list
+        """
+        buttons_label_lst = []
+        for obj in objs:
+            if isinstance(obj, Contract):
+                buttons_label_lst.append(obj.id)
+            else:
+                # Handle other types of items if necessary
+                buttons_label_lst.append(obj.email_address)
+        return buttons_label_lst

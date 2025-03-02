@@ -126,3 +126,18 @@ class BaseService:
         :rtype: object
         """
         return self.repository.delete(instance_id, session)
+
+    def remove_attributes_from_object(self, object_template, attributes_to_remove):
+        """
+        Removes specified attributes from the object template.
+
+        :param object_template: The template object from which attributes will be removed.
+        :type object_template: dict
+        :param attributes_to_remove: A list of attribute names to be removed.
+        :type attributes_to_remove: list
+        :return: The modified object template.
+        :rtype: dict
+        """
+        for attr in attributes_to_remove:
+            object_template.pop(attr, None)
+        return object_template

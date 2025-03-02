@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.client_controller import ClientController
+from src.controllers.contract_controller import ContractController
 from src.controllers.user_controller import UserController
 from src.models.role import Role, RoleEnum
 from src.services.auth_service import AuthService
@@ -23,7 +24,7 @@ class AuthController(BaseController):
     def __init__(self, session, base_view, current_user, history):
         super().__init__(session, base_view, current_user, history)
         logger.info("AuthController: %s", self.session)
-        self.current_user = None
+        self.current_user = current_user
 
     @staticmethod
     def create_admin_user(session):
@@ -80,10 +81,20 @@ class AuthController(BaseController):
                 self.menu(
                     "> Home",
                     [
-                        ("Users", UserController(self.session, self.base_view, self.current_user, self.history).all_users),
-                        ("Clients", ClientController(self.session, self.base_view, self.current_user, self.history).all_clients),
-                        ("Contracts", None),
-                        ("Events", None),
+                        ("Users", lambda: UserController(self.session, self.base_view, self.current_user, self.history).all_users()),
+                        ("Clients", lambda: ClientController(self.session, self.base_view, self.current_user, self.history).all_clients()),
+                        (
+                            "Contracts",
+                            lambda: ContractController(self.session, self.base_view, self.current_user, self.history).paginated_contracts_displayed(
+                                "> Home > Contracts", "all"
+                            ),
+                        ),
+                        (
+                            "Events",
+                            lambda: ContractController(self.session, self.base_view, self.current_user, self.history).paginated_contracts_displayed(
+                                "> Home > Events", "all"
+                            ),
+                        ),
                     ],
                 ),
             ),
@@ -106,8 +117,13 @@ class AuthController(BaseController):
         self.current_user = AuthService(self.current_user).signin_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), self.session
         )
-        # logger.info("redirect_func: %S", redirect_func)
-        redirect_func
+        logger.info("handle_auth_form_button_event")
+        logger.info("Current user: %s", self.current_user)
+
+        if self.current_user:
+            redirect_func
+        else:
+            self.base_view.display_message("Signin failed. Please try again.")
 
     def authentication_process(self):
         """

@@ -4,8 +4,10 @@ Ce module définit la classe ContractStatus qui représente le statut d'un contr
 
 from enum import Enum as PyEnum
 
-from sqlalchemy import Column, Enum, Integer
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import validates
 
+from logger_file import logger
 from src.models.base import Base
 
 
@@ -33,4 +35,19 @@ class ContractStatus(Base):
     id = Column(Integer, primary_key=True)
 
     # pending, signed
-    name = Column(Enum(ContractStatusEnum), nullable=False)
+    name = Column(String, nullable=False)
+
+    @validates("name")
+    def validate_name(self, _key, name):
+        """
+        Validates the name of the role.
+
+        :param name: The name of the role.
+        :type name: str
+        :return: The name of the role.
+        :rtype: str
+        """
+        logger.info("Validating contract status name.")
+        if name not in {ContractStatusEnum.value for contract_status in ContractStatusEnum}:
+            raise ValueError("Invalid contract status name.")
+        return name

@@ -33,6 +33,8 @@ class UserController(BaseController):
         :type history: History
         """
         super().__init__(session, base_view, current_user, history)
+        logger.info("UserController init: %s", self.current_user)
+        logger.info("Current user: %s", self.current_user)
 
     def all_users(self):
         """
@@ -40,12 +42,19 @@ class UserController(BaseController):
         This method retrieves all user objects from the database, converts them to a dictionary format,
         and displays them in a paginated view. It also sets up the necessary signals for user interaction.
         """
+
         user_objects = UserRepository().get_all(self.session)
         user_list_dict = UserService().list_to_dict(user_objects)
         logger.info("All users: %s", user_list_dict)
         paginated_view = PaginatedView(user_list_dict, "> Home > Users")
         paginated_view.loop = self.base_view.loop
-        layout, buttons = paginated_view.display_page(0)
+        users_label = self.get_button_data_for_items(user_objects)
+        logger.info("users_label: %s", users_label)
+        buttons_label = {
+            "users_label": users_label,
+            "buttons": ["Previous", "Next", "Create"],
+        }
+        layout, buttons = paginated_view.display_page(0, buttons_label)
 
         self.create_paginated_buttons_signal(paginated_view, buttons, user_objects)
 
@@ -66,18 +75,25 @@ class UserController(BaseController):
         :param user_objects: A collection of user-related objects to be displayed or handled when a button is clicked.
         :type user_objects: list
         """
-
-        urwid.connect_signal(paginated_view.search_edit, "change", paginated_view.handle_search_change)
         for button in buttons["buttons_items"]:
+            object_details_data = {
+                "title": f"Home > Users > {button.get_label()}",
+                "item_identifier": button.get_label(),
+                "obj_lst": user_objects,
+                "service": self,
+                "buttons_label": ["Modify", "Delete"],
+            }
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button: self.object_details_layout(f"Home > Users > {button.get_label()}", button.get_label(), user_objects, self),
+                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
+                    f"Home > Client > {button.get_label()}", button.get_label(), user_objects, self, object_details_data
+                ),
             )
-        urwid.connect_signal(buttons["previous_button"], "click", lambda button=button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["next_button"], "click", lambda button=button: paginated_view.next_page())
+        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button=button: paginated_view.previous_page())
+        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button=button: paginated_view.next_page())
         # if buttons["create_button"] is not None:
-        urwid.connect_signal(buttons["create_button"], "click", lambda button=button: self.user_creation())
+        urwid.connect_signal(buttons["other_buttons"][2], "click", lambda button=button: self.user_creation())
 
     def create_details_view_buttons_signal(self, buttons, user_object):
         """
@@ -89,15 +105,16 @@ class UserController(BaseController):
         :type user_object: User
         """
         logger.info("Creating details view buttons signal")
+        logger.info("Current user: %s", self.current_user)
         user_template_dict = user_object.to_dict()
         urwid.connect_signal(
-            buttons["modify_button"],
+            buttons[0],
             "click",
             lambda button: self.pre_filled_form_page(
                 f"Home > Users > {user_object.email_address} > Modify", user_template_dict, user_object, UserService()
             ),
         )
-        urwid.connect_signal(buttons["delete_button"], "click", lambda button: self.show_delete_confirmation(user_object, BaseService(User)))
+        urwid.connect_signal(buttons[1], "click", lambda button: self.show_delete_confirmation(user_object, BaseService(User)))
 
     def user_creation(self):
         """
