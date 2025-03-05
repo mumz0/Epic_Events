@@ -2,6 +2,8 @@
 Ce module définit la classe Client qui représente un client dans la base de données.
 """
 
+import datetime
+
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -34,11 +36,11 @@ class Client(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String)
-    email = Column(String)
+    email_address = Column(String)
     phone = Column(String)
     compagny = Column(String)
-    creation_date = Column(DateTime)
-    last_update = Column(DateTime)
+    creation_date = Column(DateTime, default=datetime.datetime.now())
+    last_update = Column(DateTime, default=datetime.datetime.now(), onupdate=datetime.datetime.now())
     sales_contact_id = Column(Integer, ForeignKey("user.id"), nullable=False)
 
     sales_contact = relationship("User", backref="clients")
@@ -52,7 +54,8 @@ class Client(Base):
         :rtype: dict
         """
         return {
-            "Email address": self.email,
+            "Name": self.name,
+            "Email address": self.email_address,
             "Phone": self.phone,
             "Compagny": self.compagny,
             "Creation date": self.creation_date,
@@ -67,4 +70,4 @@ class Client(Base):
         :return: The email address of the user.
         :rtype: str
         """
-        return self.email
+        return self.email_address

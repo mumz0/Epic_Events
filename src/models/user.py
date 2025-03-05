@@ -1,5 +1,5 @@
 """
-Ce module définit la classe User qui représente un utilisateur dans la base de données.
+Ce module définit la classe User qui représente un client dans la base de données.
 """
 
 from sqlalchemy import Column, ForeignKey, Integer, String
@@ -19,7 +19,7 @@ class User(Base):
     :param password: Le mot de passe de l'utilisateur.
     :type password: str
     :param role_id: L'identifiant du rôle associé à l'utilisateur.
-    :type role_id: int
+    :type role_id: str
     :param role: Le rôle associé à l'utilisateur.
     :type role: Role
     """
@@ -30,8 +30,23 @@ class User(Base):
     email_address = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
     token = Column(String, nullable=True)
-    role_id = Column(Integer, ForeignKey("role.id"))
+    role_id = Column(String, ForeignKey("role.name"))
     role = relationship("Role", back_populates="users")
+
+    def create_user_obj(self, email_address, password, role_id):
+        """
+        Create a new User object.
+
+        :param email_address: The email address of the user.
+        :type email_address: str
+        :param password: The password of the user.
+        :type password: str
+        :param role: The role of the user.
+        :type role: Role
+        :return: A new User object.
+        :rtype: User
+        """
+        return User(email_address=email_address, password=password, role=role_id)
 
     def to_dict(self):
         """

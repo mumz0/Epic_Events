@@ -1,8 +1,10 @@
 """This file defines the UserService class for handling operations related to User entities."""
 
+from logger_file import logger
 from src.models.user import User
 from src.repositories.user_repository import UserRepository
 from src.services.base_service import BaseService
+from src.services.role_service import RoleService
 
 
 class UserService(BaseService):
@@ -39,6 +41,20 @@ class UserService(BaseService):
         user = self.repository.find_by_email(email, session)
         return user
 
+    def create_user(self, data, session):
+        """
+        Creates and persists an instance of the model with the given data.
+
+        :param data: The data to initialize the model instance.
+        :type data: dict
+        :param session: The database session.
+        :type session: Session
+        :return: The persisted instance of the model.
+        :rtype: object
+        """
+        instance = self.model(**data)
+        return self.repository.add(instance, session)
+
     def list_to_dict(self, user_list):
         """
         Converts a list of User objects to a dictionary.
@@ -49,6 +65,31 @@ class UserService(BaseService):
         :rtype: dict
         """
         user_dict = {}
-        for user in user_list:
-            user_dict["Email address"] = user.email_address
+        for client in user_list:
+            user_dict[client.id] = client.to_dict()
         return user_dict
+
+    def prepare_data_and_update(self, data, obj, session):
+        """
+        Create the data to update the user.
+
+        :param data: The data to update the user.
+        :type data: dict
+        :return: The data to update the user.
+        :rtype: dict
+        """
+        for attr, value in data.items():
+            logger.info(f"{attr}: {value}")
+        role_service = RoleService()
+        role = role_service.get_by_name(data["Role"], session)
+        if not role:
+            raise ValueError(f"Role '{data['Role']}' not found.")
+
+        data = {"email_address": data["Email address"], "role_id": role.name}
+        return self.repository.update_obj(obj.id, data, session)
+
+    def get_by_email(self, email, session):
+        """Retrieve a user by email address."""
+        user = self.repository.find_by_email(email, session)
+        logger.info("User found: %s", user)
+        return user

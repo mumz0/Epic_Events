@@ -2,10 +2,24 @@
 Ce module définit la classe Role qui représente un rôle dans la base de données.
 """
 
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship
+from enum import Enum as PyEnum
 
+from sqlalchemy import Column, String
+from sqlalchemy.orm import relationship, validates
+
+from logger_file import logger
 from src.models.base import Base
+
+
+class RoleEnum(PyEnum):
+    """
+    This enumeration defines possible roles a user can have.
+    """
+
+    ADMIN = "admin"
+    SALES = "sales"
+    SUPPORT = "support"
+    MANAGEMENT = "management"
 
 
 class Role(Base):
@@ -24,7 +38,22 @@ class Role(Base):
 
     __tablename__ = "role"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True)
+    # id = Column(Integer, unique=True)
+    name = Column(String, primary_key=True, unique=True, nullable=False)
     users = relationship("User", back_populates="role")
     permissions = relationship("Permission", secondary="role_permission", backref="roles")
+
+    @validates("name")
+    def validate_name(self, _key, name):
+        """
+        Validates the name of the role.
+
+        :param name: The name of the role.
+        :type name: str
+        :return: The name of the role.
+        :rtype: str
+        """
+        logger.info("Validating role name.")
+        if name not in {role.value for role in RoleEnum}:
+            raise ValueError("Invalid role name.")
+        return name

@@ -57,14 +57,20 @@ class AuthService(BaseService):
         :return: The created user or None if creation fails.
         :rtype: User or None
         """
-        user_data = {"email_address": email, "password": argon2.hash(password), "role": role}
-        user = UserService().create(user_data, session)
+        # Vérifier si l'utilisateur existe déjà
+        existing_user = session.query(User).filter_by(email_address=email).first()
+        if existing_user:
+            logger.info("User with email %s already exists.", email)
+            return True
+
+        user_data = {"email_address": email, "password": argon2.hash(password), "role_id": role}
+        user = BaseService(User).create(user_data, session)
         logger.info("User: %s", user)
         if user:
-            print("User created successfully.")
-            return user
-        print("User creation failed.")
-        return None
+            logger.info("User created successfully.")
+            return True
+        logger.info("User creation failed.")
+        return False
 
     def signin_process(self, email: str, password: str, session):
         """

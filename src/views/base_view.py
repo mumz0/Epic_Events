@@ -26,6 +26,18 @@ class BaseView:
         self.ascii_art = Ascii().epic_events()
         self.loop = None
 
+    def admin_signup_view(self):
+        """
+        Admin signup view that prompts the user for email and password, returning them as a tuple.
+
+        :returns: A tuple containing the user's email and password.
+        :rtype: tuple
+        """
+        email_edit = input("Email: ")
+        password_edit = input("Password: ")
+        logger.info("email_edit, password_edit, %s, %s", email_edit, password_edit)
+        return email_edit, password_edit
+
     def init_main_loop(self, layout, unhandled_input):
         """
         Initialize the main loop for the application.
@@ -55,7 +67,7 @@ class BaseView:
         self.loop.screen.clear()
         self.loop.draw_screen()
 
-    def create_button(self, label: str, on_press=None):
+    def create_button(self, label: str):
         """
         Create a button with the given label and optional on_press callback.
 
@@ -67,8 +79,6 @@ class BaseView:
         :rtype: urwid.Button
         """
         button = urwid.Button(label)
-        if on_press:
-            urwid.connect_signal(button, "click", on_press)
         return button
 
     def clear_screen(self):
@@ -209,7 +219,7 @@ class BaseView:
         card = urwid.Filler(pile, valign="top")
         return card
 
-    def create_object_details_frame(self, title, selected_object):
+    def create_object_details_frame(self, title, selected_object, buttons_labels):
         """
         Create a frame displaying details for a given object.
         This method first creates a card for the selected object (if provided),
@@ -220,11 +230,65 @@ class BaseView:
             no card will be generated.
         :return: A frame widget containing the header and the object's details.
         """
-        card = urwid.Text("")  # Initialisation par défaut
+        card = urwid.Text("")
         if selected_object:
             card = self.create_card(selected_object)
 
         header_body = self.create_header_body(title)
         body = header_body + [card]
+        buttons = []
+        for button_label in buttons_labels["buttons_label"]:
+            button = self.create_button(button_label)
+            buttons.append(button)
+            body.append(button)
         frame = self.create_frame(body)
-        return frame
+        # buttons = {"modify_button": buttons[0], "delete_button": buttons[1]}
+        return frame, buttons
+
+    def create_pre_filled_form_page(self, object_template, title):
+        """
+        Create a pre-filled form page with the given object template and title.
+
+        :param object_template: The template object to pre-fill the form fields.
+        :type object_template: dict
+        :param title: The title of the form page.
+        :type title: str
+        :return: A tuple containing the layout and the button.
+        :rtype: tuple
+        """
+        header_body = self.create_header_body(title)
+
+        edit_widgets = []
+        for key, value in object_template.items():
+            edit_widgets.append(urwid.Edit(f"{key}: ", str(value)))
+
+        save_button = urwid.Button("Save")
+        body = header_body + edit_widgets + [urwid.Divider(), save_button]
+        list_box = urwid.ListBox(urwid.SimpleFocusListWalker(body))
+        frame = urwid.Frame(body=list_box)
+        layout_dict = {"edits": edit_widgets, "buttons": save_button, "layout": frame}
+        return layout_dict
+
+    def create_delete_confirmation_popup_layout(self):
+        """
+        Create a confirmation popup layout to confirm item deletion.
+        """
+        yes_button = urwid.Button("Yes")
+        no_button = urwid.Button("No")
+        buttons = [yes_button, no_button]
+        pile = urwid.Pile(
+            [
+                urwid.Text("Do you really want to delete this item?"),
+                urwid.Columns([yes_button, no_button]),
+            ]
+        )
+
+        popup = urwid.Overlay(
+            urwid.LineBox(pile),
+            self.loop.widget,
+            align="center",
+            width=("relative", 50),
+            valign="middle",
+            height=("relative", 20),
+        )
+        return popup, buttons

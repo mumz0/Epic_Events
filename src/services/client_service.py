@@ -1,10 +1,10 @@
 """This file defines the ClientService class for handling operations related to Client entities."""
 
-import urwid
-
+from logger_file import logger
 from src.models.client import Client
 from src.repositories.client_repository import ClientRepository
 from src.services.base_service import BaseService
+from src.services.user_service import UserService
 
 
 class ClientService(BaseService):
@@ -25,26 +25,6 @@ class ClientService(BaseService):
         repository = ClientRepository()
         super().__init__(Client, repository)
 
-    def create_object_details_frame(self, title, selected_object):
-        """
-        Create a frame displaying details for a given object.
-        This method first creates a card for the selected object (if provided),
-        then composes a header. Both the card and header elements are added to a frame,
-        which is returned as the resulting widget.
-        :param title: A string representing the title to be displayed in the header.
-        :param selected_object: The object for which to create a card. If None,
-            no card will be generated.
-        :return: A frame widget containing the header and the object's details.
-        """
-        card = urwid.Text("")  # Initialisation par défaut
-        if selected_object:
-            card = self.create_card(selected_object)
-
-        header_body = self.create_header_body(title)
-        body = header_body + [card]
-        frame = self.create_frame(body)
-        return frame
-
     def list_to_dict(self, client_list):
         """
         Converts a list of Client objects to a dictionary.
@@ -56,5 +36,30 @@ class ClientService(BaseService):
         """
         client_dict = {}
         for client in client_list:
-            client_dict["Email address"] = client.email
+            client_dict[client.id] = client.to_dict()
+        logger.info("Client dict: %s", client_dict)
         return client_dict
+
+    def prepare_data_and_update(self, data, obj, session):
+        """
+        Create the data to update the user.
+
+        :param data: The data to update the user.
+        :type data: dict
+        :return: The data to update the user.
+        :rtype: dict
+        """
+        for attr, value in data.items():
+            logger.info(f"{attr}: {value}")
+        user = UserService().get_user(data["Sales contact"], session)
+        if not user:
+            raise ValueError(f"Contact Sales '{data['Sales contact']}' not found.")
+
+        data = {
+            "phone": data["Phone"],
+            "compagny": data["Compagny"],
+            "name": data["Name"],
+            "email": data["Email address"],
+            "sales_contact_id": user.email_address,
+        }
+        return self.repository.update_obj(obj.id, data, session)

@@ -5,9 +5,9 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from src.controllers.auth_controller import AuthController
 from src.controllers.permission_controller import PermissionController
 from src.controllers.role_controller import RoleController
-from src.controllers.user_controller import UserController
 from src.models.base import Base
 from src.services.role_service import RoleService
 
@@ -66,7 +66,7 @@ class DatabaseManager:
         """Fills the database with initial data by creating permissions, roles, and an admin user."""
         permission_obj_lst = PermissionController().create_permissions()
         RoleController().create_roles(permission_obj_lst, self.session)
-        UserController().create_admin_user(self.session)
+        AuthController.create_admin_user(self.session)
 
 
 # Initialize the Engine object

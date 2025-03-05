@@ -20,7 +20,7 @@ class RoleService(BaseService):
         :param Role: The Role model class.
         :type Role: class
         """
-        repository = RoleRepository()
+        repository: RoleRepository = RoleRepository()
         super().__init__(Role, repository)
 
     def get_all(self, session):
@@ -31,3 +31,14 @@ class RoleService(BaseService):
         :rtype: list
         """
         return self.repository.get_all(session)
+
+    def get_by_name(self, name, session):
+        """
+        Retrieves a Role entity by its name.
+
+        :param name: The name of the Role entity.
+        :type name: str
+        :return: The Role entity with the specified name.
+        :rtype: Role
+        """
+        return self.repository.get_by_name(name, session)

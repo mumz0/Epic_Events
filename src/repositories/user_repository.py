@@ -50,3 +50,14 @@ class UserRepository(BaseRepository):
         user = session.query(User).get(user_id)
         user.token = token
         session.commit()
+
+    def get_all(self, session):
+        """
+        Retrieves all instances from the model except admin user.
+
+        :param session: The database session.
+        :type session: Session
+        :return: A list of all instances of the model.
+        :rtype: list
+        """
+        return session.query(self.model).filter(self.model.role_id != 1).all()

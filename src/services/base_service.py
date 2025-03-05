@@ -73,6 +73,19 @@ class BaseService:
         """
         return self.repository.get(instance_id, session)
 
+    def get_id(self, instance_name, session):
+        """
+        Retrieves an instance of the model by its name.
+
+        :param instance_name: The name of the model instance.
+        :type instance_name: str
+        :param session: The database session.
+        :type session: Session
+        :return: The instance of the model if found, otherwise None.
+        :rtype: object or None
+        """
+        return self.repository.get_id(instance_name, session)
+
     def get_all(self, session):
         """
         Retrieves all instances of the model.
@@ -113,3 +126,18 @@ class BaseService:
         :rtype: object
         """
         return self.repository.delete(instance_id, session)
+
+    def remove_attributes_from_object(self, object_template, attributes_to_remove):
+        """
+        Removes specified attributes from the object template.
+
+        :param object_template: The template object from which attributes will be removed.
+        :type object_template: dict
+        :param attributes_to_remove: A list of attribute names to be removed.
+        :type attributes_to_remove: list
+        :return: The modified object template.
+        :rtype: dict
+        """
+        for attr in attributes_to_remove:
+            object_template.pop(attr, None)
+        return object_template

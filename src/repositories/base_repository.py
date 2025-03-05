@@ -57,6 +57,19 @@ class BaseRepository:
         """
         return session.query(self.model).get(instance_id)
 
+    def get_id(self, instance_name, session):
+        """
+        Retrieves an instance by its name.
+
+        :param instance_name: The name of the instance to retrieve.
+        :type instance_name: str
+        :param session: The database session.
+        :type session: Session
+        :return: The retrieved instance.
+        :rtype: object
+        """
+        return session.query(self.model).filter_by(name=instance_name).first()
+
     def get_all(self, session):
         """
         Retrieves all instances of the model.
@@ -83,7 +96,8 @@ class BaseRepository:
         """
         instance = session.query(self.model).get(instance_id)
         for key, value in data.items():
-            setattr(instance, key, value)
+            if hasattr(instance, key):
+                setattr(instance, key, value)
         session.commit()
         return instance
 
