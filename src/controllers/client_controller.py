@@ -3,7 +3,6 @@
 
 import urwid
 
-from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.contract_controller import ContractController
 from src.controllers.event_controller import EventController
@@ -45,11 +44,9 @@ class ClientController(BaseController):
         """
         client_objects = BaseService(self.current_user, ClientRepository()).get_all(self.session)
         client_list_dict = ClientService().list_to_dict(client_objects)
-        logger.info("All users: %s", client_list_dict)
         paginated_view = PaginatedView(client_list_dict, "> Home > Clients")
         paginated_view.loop = self.base_view.loop
         clients_label = BaseController.get_button_data_for_items(self, client_objects)
-        logger.info("users_label: %s", clients_label)
         buttons_label = {
             "users_label": clients_label,
             "buttons": ["Previous", "Next", "Create"],
@@ -58,10 +55,8 @@ class ClientController(BaseController):
 
         self.create_paginated_buttons_signal(paginated_view, buttons, client_objects)
 
-        logger.info("items: %s", paginated_view.items)
         self.history.append(layout)
         self.base_view.update_screen(layout)
-        logger.info("History:  all clients (%s)", len(self.history))
 
     def create_paginated_buttons_signal(self, paginated_view, buttons, client_objects):
         """
@@ -111,9 +106,6 @@ class ClientController(BaseController):
             lambda button: self.handle_client_creation_button_event(layout_dict),
         )
         self.base_view.update_screen(layout_dict["layout"])
-        logger.info("Create User view")
-        logger.info(self.base_view.loop)
-        logger.info("History:  before client creation (%s)", len(self.history))
 
     def handle_client_creation_button_event(self, layout_dict):
         """
@@ -126,7 +118,6 @@ class ClientController(BaseController):
         :param redirect_func: A callable function to redirect after successful user creation, or None.
         :type redirect_func: callable, optional
         """
-        logger.info("Submit button clicked")
 
         client_data = {
             "name": layout_dict["edits"][0].get_edit_text(),
@@ -138,13 +129,11 @@ class ClientController(BaseController):
         user_exist = UserService().get_by_email(layout_dict["edits"][4].get_edit_text(), self.session)
         if user_exist:
             BaseService(Client).create(client_data, self.session)
-            logger.info("Client successfully created")
             self.history.pop()
 
             self.base_view.update_screen(self.history[0])
-            logger.info("History:  after client creation (%s)", len(self.history))
         else:
-            logger.info("User creation failed")
+            self.base_view.display_message("Sales contact does not exist. Please try again.")
 
     def create_details_view_buttons_signal(self, buttons, client_object):
         """
@@ -155,11 +144,8 @@ class ClientController(BaseController):
         :param client_object: The client instance for which details are displayed
         :type client_object: Client
         """
-        logger.info("Creating details view buttons signal")
-        logger.info("Current user: %s", self.current_user)
         client_template_dict = client_object.to_dict()
         new_client_template_dict = BaseService(Client).remove_attributes_from_object(client_template_dict, ["Creation date", "Last update"])
-        logger.info("Client template dict: %s", new_client_template_dict)
         urwid.connect_signal(
             buttons[0],
             "click",

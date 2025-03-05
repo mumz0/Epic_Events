@@ -3,7 +3,6 @@
 
 import urwid
 
-from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.models.contract import Contract
 from src.repositories.contract_repository import ContractRepository
@@ -41,19 +40,15 @@ class ContractController(BaseController):
         """
         contract_objects = self.define_data_to_display(filter_type, client_email_address)
         contract_list_dict = ContractService().list_to_dict(contract_objects)
-        logger.info("All users: %s", contract_list_dict)
         paginated_view = PaginatedView(contract_list_dict, title)
         paginated_view.loop = self.base_view.loop
         contracts_label = self.get_button_data_for_items(contract_objects)
-        logger.info("users_label: %s", contracts_label)
         buttons_label = self.define_page_buttons_nedded(contracts_label, filter_type)
         layout, buttons = paginated_view.display_page(0, buttons_label)
         self.define_page_buttons_signal_needded(paginated_view, buttons, contract_objects, filter_type, client_email_address)
 
-        logger.info("items: %s", paginated_view.items)
         self.history.append(layout)
         self.base_view.update_screen(layout)
-        logger.info("History:  Menu (%s)", len(self.history))
 
     def define_data_to_display(self, filter_type, client_email_address=None):
         """
@@ -286,9 +281,6 @@ class ContractController(BaseController):
             lambda button: self.handle_client_creation_button_event(layout_dict, client_email_address),
         )
         self.base_view.update_screen(layout_dict["layout"])
-        logger.info("Create Contract view")
-        logger.info(self.base_view.loop)
-        logger.info("History:  before Contract creation (%s)", len(self.history))
 
     def handle_client_creation_button_event(self, layout_dict, client_email_address):
         """
@@ -307,7 +299,6 @@ class ContractController(BaseController):
                                      contract is being created.
         :type client_email_address: str
         """
-        logger.info("Submit button clicked")
 
         contract_data = {
             "id": ContractService().generate_uid(self.session),
@@ -318,13 +309,11 @@ class ContractController(BaseController):
             "status_id": layout_dict["edits"][2].get_edit_text(),
         }
         if BaseService(Contract).create(contract_data, self.session):
-            logger.info("Contract successfully created")
             self.history.pop()
 
             self.base_view.update_screen(self.history[0])
-            logger.info("History:  after contract creation (%s)", len(self.history))
         else:
-            logger.info("Contract creation failed")
+            self.base_view.display_message("Contract creation failed. Please try again.")
 
     def create_details_view_buttons_signal(self, buttons, contract_object):
         """
@@ -339,13 +328,10 @@ class ContractController(BaseController):
         :type contract_object: Contract
         """
 
-        logger.info("Creating details view buttons signal")
-        logger.info("Current user: %s", self.current_user)
         client_template_dict = contract_object.to_dict()
         new_client_template_dict = BaseService(Contract).remove_attributes_from_object(
             client_template_dict, ["ID", "Client Name", "Client Email address", "Client Phone", "Client Compagny", "Creation date"]
         )
-        logger.info("Client template dict: %s", new_client_template_dict)
         urwid.connect_signal(
             buttons[0],
             "click",

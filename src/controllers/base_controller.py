@@ -6,7 +6,6 @@ import sys
 
 import urwid
 
-from logger_file import logger
 from src.models.contract import Contract
 from src.models.event import Event
 
@@ -90,7 +89,6 @@ class BaseController:
         """
         Removes the pop-up and returns to the previous screen.
         """
-        logger.info("History: %s", self.history)
         if self.history:
             self.history.pop()
             self.base_view.update_screen(self.history[-1])
@@ -121,14 +119,11 @@ class BaseController:
         :param key: The key that was pressed.
         :type key: str
         """
-        logger.info("ESC pressed: %s", self.history)
         if self.base_view.loop.widget == self.history[0]:
             self.show_exit_confirmation()
             return
-        logger.debug(f"Key pressed: {key}")
         if key == "esc" and self.history:
             self.base_view.loop.widget = self.history.pop()
-            logger.info("Returning to previous page: %s", self.base_view.loop.widget)
             if self.history:
                 self.base_view.update_screen(self.history[-1])
             else:
@@ -143,22 +138,17 @@ class BaseController:
         :type menu_items: list of (str, callable)
         """
 
-        logger.info(f"Displaying {title} menu")
         labels = [item[0] for item in menu_items]
         buttons, layout = self.base_view.create_menu_layout(title, labels)
 
-        for button, (label, func) in zip(buttons, menu_items):
-            logger.debug(f"Menu item: {label}")
+        for button, (_label, func) in zip(buttons, menu_items):
             urwid.connect_signal(button.base_widget, "click", lambda button, handler=func: self.handle_button_pressed(handler))
 
         if "Home" in str(title):
-            logger.info("Adding to history")
             self.history.append(layout)
             self.base_view.update_screen(self.history[-1])
-        logger.info("Home" in title)
-        logger.info("Not adding to history")
+
         self.base_view.update_screen(layout)
-        logger.info("History:  Menu (%s)", len(self.history))
 
     def object_details_layout(self, title, item_label, objects_lst, controller, buttons_labels):
         """
@@ -170,17 +160,9 @@ class BaseController:
         :param objects_lst: The list of objects to search for the item.
         :type objects_lst: list
         """
-        logger.info("object_details_layout function")
-        logger.info("Current user: %s", self.current_user)
-        logger.info("History: %s", self.history)
-        logger.info("Found label: %s", item_label)
         selected_object = None
         for obj in objects_lst:
-            logger.info("Object: %s", obj)
-            logger.info("Object identifier: %s", obj.get_identifier())
-            logger.info(item_label)
             if obj.get_identifier() == item_label:
-                logger.info("Found object: %s", obj.id)
                 selected_object = obj
             elif obj.id == item_label:
                 selected_object = obj
@@ -189,7 +171,6 @@ class BaseController:
         controller.create_details_view_buttons_signal(buttons, selected_object)
         self.history.append(frame)
         self.base_view.update_screen(frame)
-        logger.info("History:  obj details (%s)", len(self.history))
 
     def pre_filled_form_page(self, title, object_template, obj, service):
         """
@@ -199,11 +180,7 @@ class BaseController:
         :param title: The title of the form page.
         :type title: str
         """
-        logger.info("Creating pre-filled form page")
-        logger.info("History: %s", self.history)
-        logger.info("Object template: %s", object_template)
         layout_dict = self.base_view.create_pre_filled_form_page(object_template, title)
-        logger.info("Layout type: %s", type(layout_dict["layout"]))
         urwid.connect_signal(layout_dict["buttons"], "click", lambda button: self.handle_save_button(layout_dict["edits"], obj, service))
         # self.history.append(layout_dict["layout"])
         self.base_view.update_screen(layout_dict["layout"])
@@ -217,7 +194,6 @@ class BaseController:
             label = edit.caption.strip(": ")
             edit_text = edit.get_edit_text()
             data[label] = edit_text
-            logger.info("edit.get_edit_text(): %s", edit_text)
         service.prepare_data_and_update(data, obj, self.session)
         self.history.pop()
         self.history.pop()
@@ -230,7 +206,6 @@ class BaseController:
         :param delete_func: The function to call if the user confirms the deletion.
         :type delete_func: callable
         """
-        logger.info("History: %s", self.history)
         layout, buttons = self.base_view.create_delete_confirmation_popup_layout()
 
         urwid.connect_signal(buttons[0], "click", lambda button: self.handle_confirmation_delete(obj.id, service))
@@ -248,7 +223,6 @@ class BaseController:
         :param service: The service to handle the deletion.
         :type service: BaseService
         """
-        logger.info("History: %s", self.history)
         service.delete(object_id, self.session)
         self.remove_popup()
 

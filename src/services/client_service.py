@@ -1,6 +1,5 @@
 """This file defines the ClientService class for handling operations related to Client entities."""
 
-from logger_file import logger
 from src.models.client import Client
 from src.repositories.client_repository import ClientRepository
 from src.services.base_service import BaseService
@@ -37,7 +36,6 @@ class ClientService(BaseService):
         client_dict = {}
         for client in client_list:
             client_dict[client.id] = client.to_dict()
-        logger.info("Client dict: %s", client_dict)
         return client_dict
 
     def prepare_data_and_update(self, data, obj, session):
@@ -49,8 +47,7 @@ class ClientService(BaseService):
         :return: The data to update the user.
         :rtype: dict
         """
-        for attr, value in data.items():
-            logger.info(f"{attr}: {value}")
+
         user = UserService().get_user(data["Sales contact"], session)
         if not user:
             raise ValueError(f"Contact Sales '{data['Sales contact']}' not found.")

@@ -1,6 +1,5 @@
 """This file defines the UserService class for handling operations related to User entities."""
 
-from logger_file import logger
 from src.models.user import User
 from src.repositories.user_repository import UserRepository
 from src.services.base_service import BaseService
@@ -78,8 +77,6 @@ class UserService(BaseService):
         :return: The data to update the user.
         :rtype: dict
         """
-        for attr, value in data.items():
-            logger.info(f"{attr}: {value}")
         role_service = RoleService()
         role = role_service.get_by_name(data["Role"], session)
         if not role:
@@ -91,5 +88,4 @@ class UserService(BaseService):
     def get_by_email(self, email, session):
         """Retrieve a user by email address."""
         user = self.repository.find_by_email(email, session)
-        logger.info("User found: %s", user)
         return user

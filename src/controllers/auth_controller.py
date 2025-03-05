@@ -4,9 +4,7 @@
 """
 
 import urwid
-from sqlalchemy.orm.exc import NoResultFound
 
-from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.client_controller import ClientController
 from src.controllers.contract_controller import ContractController
@@ -24,7 +22,6 @@ class AuthController(BaseController):
 
     def __init__(self, session, base_view, current_user, history):
         super().__init__(session, base_view, current_user, history)
-        logger.info("AuthController: %s", self.session)
         self.current_user = current_user
 
     @staticmethod
@@ -35,12 +32,8 @@ class AuthController(BaseController):
         :param session_obj: The database session object.
         :type session_obj: Session
         """
-        try:
-            admin_role_obj = session.query(Role).filter_by(name=RoleEnum.ADMIN.value).first()
-        except NoResultFound:
-            logger.info("Role not found.")
+        admin_role_obj = session.query(Role).filter_by(name=RoleEnum.ADMIN.value).first()
 
-        logger.info("admin_role: %s", admin_role_obj)
         email, password = BaseView().admin_signup_view()
         AuthService(None).signup_process(email, password, admin_role_obj.name, session)
 
@@ -63,8 +56,6 @@ class AuthController(BaseController):
         "click" signal of the login button to the handle_signin_button_pressed method. It
         then updates the screen and sets the current widget to the login page layout.
         """
-        logger.info("run_main_loop")
-        logger.info(self.base_view.loop)
 
         # Define the labels for the form
         button_labels = ["Sign In"]
@@ -103,8 +94,6 @@ class AuthController(BaseController):
 
         # Update the screen with the new layout
         self.base_view.update_screen(layout_dict["layout"])
-        logger.info("signin")
-        logger.info(self.base_view.loop)
 
     def handle_auth_form_button_event(self, layout_dict, redirect_func):
         """
@@ -114,12 +103,9 @@ class AuthController(BaseController):
         :param password: The password entered by the user.
         :type password: str
         """
-        logger.info("Submit button clicked")
         self.current_user = AuthService(self.current_user).signin_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), self.session
         )
-        logger.info("handle_auth_form_button_event")
-        logger.info("Current user: %s", self.current_user)
 
         if self.current_user:
             redirect_func

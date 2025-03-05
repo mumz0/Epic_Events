@@ -3,7 +3,6 @@
 
 import urwid
 
-from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.models.event import Event
 from src.repositories.event_reposiroty import EventRepository
@@ -42,19 +41,15 @@ class EventController(BaseController):
         """
         event_objects = self.define_data_to_display(filter_type, email_address)
         event_list_dict = EventService().list_to_dict(event_objects)
-        logger.info("All events: %s", event_list_dict)
         paginated_view = PaginatedView(event_list_dict, title)
         paginated_view.loop = self.base_view.loop
         events_label = self.get_button_data_for_items(event_objects)
-        logger.info("users_label: %s", events_label)
         buttons_label = self.define_page_buttons_nedded(events_label, filter_type)
         layout, buttons = paginated_view.display_page(0, buttons_label)
         self.define_page_buttons_signal_needded(paginated_view, buttons, event_objects, filter_type, email_address)
 
-        logger.info("items: %s", paginated_view.items)
         self.history.append(layout)
         self.base_view.update_screen(layout)
-        logger.info("History:  Menu (%s)", len(self.history))
 
     def define_data_to_display(self, filter_type, email_address=None):
         """
@@ -263,9 +258,6 @@ class EventController(BaseController):
             lambda button: self.handle_client_creation_button_event(layout_dict, client_email_address),
         )
         self.base_view.update_screen(layout_dict["layout"])
-        logger.info("Create event view")
-        logger.info(self.base_view.loop)
-        logger.info("History:  before event creation (%s)", len(self.history))
 
     def handle_client_creation_button_event(self, layout_dict, client_email_address):
         """
@@ -284,7 +276,6 @@ class EventController(BaseController):
                                      contract is being created.
         :type client_email_address: str
         """
-        logger.info("Submit button clicked")
         datetime_start_date = EventService().string_date_to_datetime(layout_dict["edits"][1].get_edit_text())
         datetime_end_date = EventService().string_date_to_datetime(layout_dict["edits"][2].get_edit_text())
         event_data = {
@@ -301,13 +292,11 @@ class EventController(BaseController):
         }
 
         if BaseService(Event).create(event_data, self.session):
-            logger.info("Event successfully created")
             self.history.pop()
 
             self.base_view.update_screen(self.history[0])
-            logger.info("History:  after event creation (%s)", len(self.history))
         else:
-            logger.info("Event creation failed")
+            self.base_view.display_message("Event creation failed. Please try again.")
 
     def create_details_view_buttons_signal(self, buttons, event_object):
         """
@@ -322,11 +311,8 @@ class EventController(BaseController):
         :type contract_object: Contract
         """
 
-        logger.info("Creating details view buttons signal")
-        logger.info("Current user: %s", self.current_user)
         event_template_dict = event_object.to_dict()
         new_event_template_dict = BaseService(Event).remove_attributes_from_object(event_template_dict, "ID")
-        logger.info("Event template dict: %s", new_event_template_dict)
         urwid.connect_signal(
             buttons[0],
             "click",

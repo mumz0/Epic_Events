@@ -7,7 +7,6 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import validates
 
-from logger_file import logger
 from src.models.base import Base
 
 
@@ -47,7 +46,6 @@ class ContractStatus(Base):
         :return: The name of the role.
         :rtype: str
         """
-        logger.info("Validating contract status name.")
         if name not in {ContractStatusEnum.value for contract_status in ContractStatusEnum}:
             raise ValueError("Invalid contract status name.")
         return name

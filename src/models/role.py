@@ -7,7 +7,6 @@ from enum import Enum as PyEnum
 from sqlalchemy import Column, String
 from sqlalchemy.orm import relationship, validates
 
-from logger_file import logger
 from src.models.base import Base
 
 
@@ -53,7 +52,6 @@ class Role(Base):
         :return: The name of the role.
         :rtype: str
         """
-        logger.info("Validating role name.")
         if name not in {role.value for role in RoleEnum}:
             raise ValueError("Invalid role name.")
         return name

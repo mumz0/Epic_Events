@@ -3,7 +3,6 @@
 
 import urwid
 
-from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.models.user import User
 from src.repositories.user_repository import UserRepository
@@ -33,8 +32,6 @@ class UserController(BaseController):
         :type history: History
         """
         super().__init__(session, base_view, current_user, history)
-        logger.info("UserController init: %s", self.current_user)
-        logger.info("Current user: %s", self.current_user)
 
     def all_users(self):
         """
@@ -45,11 +42,9 @@ class UserController(BaseController):
 
         user_objects = UserRepository().get_all(self.session)
         user_list_dict = UserService().list_to_dict(user_objects)
-        logger.info("All users: %s", user_list_dict)
         paginated_view = PaginatedView(user_list_dict, "> Home > Users")
         paginated_view.loop = self.base_view.loop
         users_label = self.get_button_data_for_items(user_objects)
-        logger.info("users_label: %s", users_label)
         buttons_label = {
             "users_label": users_label,
             "buttons": ["Previous", "Next", "Create"],
@@ -58,10 +53,8 @@ class UserController(BaseController):
 
         self.create_paginated_buttons_signal(paginated_view, buttons, user_objects)
 
-        logger.info("items: %s", paginated_view.items)
         self.history.append(layout)
         self.base_view.update_screen(layout)
-        logger.info("History:  Menu (%s)", len(self.history))
 
     def create_paginated_buttons_signal(self, paginated_view, buttons, user_objects):
         """
@@ -104,8 +97,6 @@ class UserController(BaseController):
         :param user_object: The user object related to the details view.
         :type user_object: User
         """
-        logger.info("Creating details view buttons signal")
-        logger.info("Current user: %s", self.current_user)
         user_template_dict = user_object.to_dict()
         urwid.connect_signal(
             buttons[0],
@@ -140,8 +131,6 @@ class UserController(BaseController):
         )
 
         self.base_view.update_screen(layout_dict["layout"])
-        logger.info("Create User view")
-        logger.info(self.base_view.loop)
 
     def handle_user_creation_button_event(self, layout_dict):
         """
@@ -154,14 +143,6 @@ class UserController(BaseController):
         :param redirect_func: A callable function to redirect after successful user creation, or None.
         :type redirect_func: callable, optional
         """
-        logger.info("Submit button clicked")
-        logger.info(
-            "email: %s, password: %s, role_name: %s",
-            layout_dict["edits"][0].get_edit_text(),
-            layout_dict["edits"][1].get_edit_text(),
-            layout_dict["edits"][2].get_edit_text(),
-        )
-
         response = AuthService(self.current_user).signup_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), layout_dict["edits"][2].get_edit_text(), self.session
         )
@@ -170,4 +151,4 @@ class UserController(BaseController):
             self.history.pop()
             self.base_view.update_screen(self.history[-1])
         else:
-            logger.info("User creation failed")
+            self.base_view.display_message("User already exists. Please try again.")
