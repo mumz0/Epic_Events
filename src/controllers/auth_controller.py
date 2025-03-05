@@ -10,6 +10,7 @@ from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.client_controller import ClientController
 from src.controllers.contract_controller import ContractController
+from src.controllers.event_controller import EventController
 from src.controllers.user_controller import UserController
 from src.models.role import Role, RoleEnum
 from src.services.auth_service import AuthService
@@ -91,7 +92,7 @@ class AuthController(BaseController):
                         ),
                         (
                             "Events",
-                            lambda: ContractController(self.session, self.base_view, self.current_user, self.history).paginated_contracts_displayed(
+                            lambda: EventController(self.session, self.base_view, self.current_user, self.history).paginated_events_displayed(
                                 "> Home > Events", "all"
                             ),
                         ),

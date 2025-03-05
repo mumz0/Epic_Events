@@ -1,5 +1,8 @@
 """This file defines the ContractService class for handling operations related to Contract entities."""
 
+import string
+import uuid
+
 from logger_file import logger
 from src.models.contract import Contract
 from src.repositories.contract_repository import ContractRepository
@@ -41,7 +44,7 @@ class ContractService(BaseService):
         user = self.repository.find_by_email(email, session)
         return user
 
-    def list_to_dict(self, contract_list):
+    def list_to_dict(self, contract_list) -> dict:
         """
         Converts a list of User objects to a dictionary.
 
@@ -81,7 +84,7 @@ class ContractService(BaseService):
         """
         return self.repository.filter_by_client_email_address(email, session)
 
-    def prepare_data_and_update(self, data, obj, session):
+    def prepare_data_and_update(self, data, obj, session) -> dict:
         """
         Create the data to update the user.
 
@@ -103,3 +106,52 @@ class ContractService(BaseService):
             "sales_contact_id": user.email_address,
         }
         return self.repository.update_obj(obj.id, data, session)
+
+    @staticmethod
+    def generate_uid(session, length=8) -> str:
+        """
+        Generate a unique identifier (UID) for a contract.
+
+        This method generates a UID by creating a random UUID, converting it to an uppercase hexadecimal string,
+        filtering out non-alphanumeric characters, and prefixing it with "CONTRACT". The generated UID is then
+        checked against the database to ensure it is unique.
+
+        :param session: The database session used to query the Contract table.
+        :type session: sqlalchemy.orm.Session
+        :param length: The length of the UID to be generated (excluding the "CONTRACT" prefix), defaults to 8.
+        :type length: int, optional
+        :return: A unique identifier for a contract.
+        :rtype: str
+        """
+        while True:
+            uid = uuid.uuid4().hex.upper()
+            uid = "".join(filter(lambda x: x in string.ascii_uppercase + string.digits, uid))
+            uid_with_prefix = f"CONTRACT{uid[:length]}"
+            if not session.query(Contract).filter(Contract.id == uid_with_prefix).first():
+                return uid_with_prefix
+
+    def filtered_by_contract_signed_or_pending(self, session, is_signed: str) -> list:
+        """
+        Filter contracts by signed or not.
+
+        :param session: The SQLAlchemy session.
+        :type session: Session
+        :param issigned: Indicates if the contract is signed or not.
+        :type issigned: str
+        :return: A list of contracts filtered by signed status.
+        :rtype: list
+        """
+        return self.repository.filtered_by_contract_signed_or_pending(session, is_signed)
+
+    def filtered_by_contract_payed_or_not(self, session, is_payed: str) -> list:
+        """
+        Filter contracts by payed or not.
+
+        :param session: The SQLAlchemy session.
+        :type session: Session
+        :param is_payed: Indicates if the contract is payed or not.
+        :type is_payed: str
+        :return: A list of contracts filtered by payed status.
+        :rtype: list
+        """
+        return self.repository.filtered_by_contract_payed_or_not(session, is_payed)

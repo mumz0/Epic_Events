@@ -6,6 +6,7 @@ import urwid
 from logger_file import logger
 from src.controllers.base_controller import BaseController
 from src.controllers.contract_controller import ContractController
+from src.controllers.event_controller import EventController
 from src.models.client import Client
 from src.repositories.client_repository import ClientRepository
 from src.services.base_service import BaseService
@@ -75,7 +76,7 @@ class ClientController(BaseController):
         """
         for button in buttons["buttons_items"]:
             object_details_data = {
-                "title": f"Home > Users > {button.get_label()}",
+                "title": f"> Home > Users > {button.get_label()}",
                 "item_identifier": button.get_label(),
                 "obj_lst": client_objects,
                 "service": self,
@@ -85,7 +86,7 @@ class ClientController(BaseController):
                 button,
                 "click",
                 lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"Home > Client > {button.get_label()}", button.get_label(), client_objects, self, object_details_data
+                    f"> Home > Client > {button.get_label()}", button.get_label(), client_objects, self, object_details_data
                 ),
             )
         urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
@@ -101,7 +102,7 @@ class ClientController(BaseController):
         edit_labels = ["Name: ", "Email: ", "Phone: ", "Compagny: ", "Sales contact (Email)"]
 
         # Create the form layout
-        layout_dict = self.base_view.create_form_layout("Home > Clients > Create", button_labels, edit_labels)
+        layout_dict = self.base_view.create_form_layout("> Home > Clients > Create", button_labels, edit_labels)
 
         # Connect the signal for the create user button
         urwid.connect_signal(
@@ -163,7 +164,7 @@ class ClientController(BaseController):
             buttons[0],
             "click",
             lambda button: self.pre_filled_form_page(
-                f"Home > Clients > {client_object.email_address} > Modify",
+                f"> Home > Clients > {client_object.email_address} > Modify",
                 new_client_template_dict,
                 client_object,
                 ClientService(),
@@ -178,11 +179,13 @@ class ClientController(BaseController):
             buttons[2],
             "click",
             lambda button: ContractController(self.session, self.base_view, self.current_user, self.history).paginated_contracts_displayed(
-                f"Home > Clients > {client_object.email_address} > Contracts", "client", client_object.email_address
+                f"> Home > Client > {client_object.email_address} > Contracts", "client", client_object.email_address
             ),
         )
         urwid.connect_signal(
             buttons[3],
             "click",
-            lambda button: self.show_client_events(client_object),
+            lambda button: EventController(self.session, self.base_view, self.current_user, self.history).paginated_events_displayed(
+                f"> Home > Client > {client_object.email_address} > Events", "client", client_object.email_address
+            ),
         )

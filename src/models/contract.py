@@ -3,7 +3,6 @@ Ce module définit la classe Contract qui représente un contrat dans la base de
 """
 
 import datetime
-import uuid
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -33,7 +32,7 @@ class Contract(Base):
 
     __tablename__ = "contract"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String, primary_key=True, unique=True)
     client_id = Column(String, ForeignKey("client.email_address"), nullable=False)
     sales_contact_id = Column(String, ForeignKey("user.email_address"), nullable=False)
     price = Column(Integer)

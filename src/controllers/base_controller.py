@@ -8,6 +8,7 @@ import urwid
 
 from logger_file import logger
 from src.models.contract import Contract
+from src.models.event import Event
 
 
 class BaseController:
@@ -263,6 +264,8 @@ class BaseController:
         buttons_label_lst = []
         for obj in objs:
             if isinstance(obj, Contract):
+                buttons_label_lst.append(obj.id)
+            elif isinstance(obj, Event):
                 buttons_label_lst.append(obj.id)
             else:
                 # Handle other types of items if necessary
