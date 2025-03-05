@@ -3,7 +3,6 @@
 import string
 import uuid
 
-from logger_file import logger
 from src.models.contract import Contract
 from src.repositories.contract_repository import ContractRepository
 from src.services.base_service import BaseService
@@ -93,8 +92,7 @@ class ContractService(BaseService):
         :return: The data to update the user.
         :rtype: dict
         """
-        for attr, value in data.items():
-            logger.info(f"{attr}: {value}")
+
         user = UserService().get_user(data["Sales contact"], session)
         if not user:
             raise ValueError(f"Contact Sales '{data['Sales contact']}' not found.")

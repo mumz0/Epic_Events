@@ -13,7 +13,6 @@ import click
 import urwid
 
 from ascii.ascii import Ascii
-from logger_file import logger
 
 
 class BaseView:
@@ -35,7 +34,6 @@ class BaseView:
         """
         email_edit = input("Email: ")
         password_edit = input("Password: ")
-        logger.info("email_edit, password_edit, %s, %s", email_edit, password_edit)
         return email_edit, password_edit
 
     def init_main_loop(self, layout, unhandled_input):
@@ -51,7 +49,6 @@ class BaseView:
         :type unhandled_input: callable
         """
         self.loop = urwid.MainLoop(layout, unhandled_input=unhandled_input)
-        logger.info("run_main_loop: %s", self.loop)
 
     def update_screen(self, layout):
         """

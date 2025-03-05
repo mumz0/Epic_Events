@@ -1,9 +1,10 @@
 # pylint: disable=useless-parent-delegation
 """This file defines the MainController class for initializing and running the application."""
 
+import sentry_sdk
 import urwid
+from sentry_sdk.integrations.serverless import serverless_function
 
-from logger_file import logger
 from src.controllers.auth_controller import AuthController
 from src.controllers.base_controller import BaseController
 
@@ -26,13 +27,10 @@ class MainController(BaseController):
         - "Connect" button triggers the handle_login_click handler.
         - "Quit" button triggers the handle_exit_click handler.
         """
-        logger.info("run_application: %s", self.session)
-        logger.info("Starting application")
-        # query users
-        # if not user
-        #     signup
+
         self.connect()
 
+    @serverless_function
     def connect(self):
         """
         Establishes the connection by setting up the authentication controller and the main menu layout.
@@ -40,6 +38,7 @@ class MainController(BaseController):
         It then creates the main menu layout with "Connect" and "Quit" buttons. Signals are connected to these buttons to
         handle their respective click events. The main loop is initialized and started.
         """
+        sentry_sdk.capture_message("MainController: Starting connection process")
 
         auth_controller = AuthController(self.session, self.base_view, self.current_user, self.history)
         buttons, layout = self.base_view.create_menu_layout(">Welcome", ["Connect", "Quit"])
@@ -49,5 +48,4 @@ class MainController(BaseController):
 
         self.base_view.init_main_loop(layout, lambda button: self.handle_back_keypress("esc"))
 
-        logger.info("connect: %s", self.base_view.loop)
         self.base_view.loop.run()

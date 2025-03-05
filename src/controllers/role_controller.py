@@ -1,6 +1,5 @@
 """This file defines the RoleController class for handling role-related operations."""
 
-from logger_file import logger
 from src.models.role import RoleEnum
 from src.services.role_service import RoleService
 
@@ -36,7 +35,6 @@ class RoleController:
         :rtype: Role
         """
         admin_role_data = {"name": RoleEnum.ADMIN.value, "permissions": permission_obj_lst}
-        logger.info(admin_role_data["name"])
         return RoleService().create(admin_role_data, session_obj)
 
     def create_management_role(self, permission_obj_lst, session_obj):
