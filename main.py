@@ -3,6 +3,7 @@
 """
 
 import logging
+import os
 
 import sentry_sdk
 from dotenv import load_dotenv
@@ -19,7 +20,7 @@ load_dotenv()
 # Configuration Sentry
 sentry_logging = LoggingIntegration(level=logging.INFO, event_level=logging.INFO)
 sentry_sdk.init(
-    dsn="https://601626b853f3c7139b85255cb488c51b@o4508922751221760.ingest.de.sentry.io/4508922839892048",
+    dsn=os.getenv("SENTRY_DSN"),
     integrations=[sentry_logging],
     send_default_pii=True,
     traces_sample_rate=1.0,
