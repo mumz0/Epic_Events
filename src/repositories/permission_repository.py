@@ -1,5 +1,7 @@
 """This file defines the PermissionRepository class for handling operations related to Permission entities."""
 
+import sentry_sdk
+
 from src.models.permission import Permission
 from src.models.role import Role
 from src.models.role_permission import RolePermission
@@ -34,10 +36,16 @@ class PermissionRepository(BaseRepository):
         :return: A list of Permission objects associated with the role name.
         :rtype: list
         """
-        return (
-            session.query(Permission)
-            .join(RolePermission, Permission.id == RolePermission.permission)
-            .join(Role, Role.id == RolePermission.role)
-            .filter(Role.name == role_name)
-            .all()
-        )
+        try:
+            permissions = (
+                session.query(Permission)
+                .join(RolePermission, Permission.id == RolePermission.permission)
+                .join(Role, Role.id == RolePermission.role)
+                .filter(Role.name == role_name)
+                .all()
+            )
+            return permissions
+        except Exception as e:
+            error_message = f"Error retrieving permissions for role {role_name}: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)

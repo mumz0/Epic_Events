@@ -7,6 +7,7 @@ the screen, and displaying messages.
 
 import os
 import time
+from datetime import datetime
 from typing import List
 
 import click
@@ -207,6 +208,8 @@ class BaseView:
         card_info = []
         card_data_dict = obj.to_dict()
         for key, value in card_data_dict.items():
+            if isinstance(value, datetime):
+                value = value.strftime("%Y/%m/%d")
             user_info = f"{key}: {str(value)}"
             card_info.append(user_info)
 
@@ -239,7 +242,6 @@ class BaseView:
             buttons.append(button)
             body.append(button)
         frame = self.create_frame(body)
-        # buttons = {"modify_button": buttons[0], "delete_button": buttons[1]}
         return frame, buttons
 
     def create_pre_filled_form_page(self, object_template, title):
@@ -279,6 +281,24 @@ class BaseView:
                 urwid.Columns([yes_button, no_button]),
             ]
         )
+
+        popup = urwid.Overlay(
+            urwid.LineBox(pile),
+            self.loop.widget,
+            align="center",
+            width=("relative", 50),
+            valign="middle",
+            height=("relative", 20),
+        )
+        return popup, buttons
+
+    def create_message_popup(self, message):
+        """
+        Create a popup layout to display a message.
+        """
+        ok_button = urwid.Button("OK")
+        buttons = [ok_button]
+        pile = urwid.Pile([urwid.Text(message), urwid.Columns([ok_button])])
 
         popup = urwid.Overlay(
             urwid.LineBox(pile),

@@ -1,6 +1,7 @@
 # pylint: disable=W0246
 """This file defines the ClientController class for handling client-related operations."""
 
+import sentry_sdk
 import urwid
 
 from src.controllers.base_controller import BaseController
@@ -49,8 +50,10 @@ class ClientController(BaseController):
         clients_label = BaseController.get_button_data_for_items(self, client_objects)
         buttons_label = {
             "users_label": clients_label,
-            "buttons": ["Previous", "Next", "Create"],
+            "buttons": ["Previous", "Next"],
         }
+        if self.current_user.role.name in ["admin", "sales"]:
+            buttons_label["buttons"].append("Create")
         layout, buttons = paginated_view.display_page(0, buttons_label)
 
         self.create_paginated_buttons_signal(paginated_view, buttons, client_objects)
@@ -70,23 +73,46 @@ class ClientController(BaseController):
         :type client_objects: list
         """
         for button in buttons["buttons_items"]:
+            selected_client = self.select_item_in_lst(client_objects, button.get_label())
             object_details_data = {
                 "title": f"> Home > Users > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": client_objects,
+                "obj_lst": selected_client,
                 "service": self,
-                "buttons_label": ["Modify", "Delete", "Contracts", "Events"],
+                "buttons_label": [],
             }
+            if selected_client.sales_contact_id == self.current_user.email_address and self.current_user.role.name != "admin":
+                object_details_data["buttons_label"] = ["Modify", "Contracts", "Events"]
+            elif (
+                self.current_user.role.name == "management"
+                or self.current_user.role.name == "sales"
+                and selected_client.sales_contact_id != self.current_user.email_address
+                or self.current_user.role.name == "support"
+            ):
+                object_details_data["buttons_label"] = ["Contracts", "Events"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = [
+                    "Modify",
+                    "Delete",
+                    "Contracts",
+                    "Events",
+                ]
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"> Home > Client > {button.get_label()}", button.get_label(), client_objects, self, object_details_data
+                lambda button=button, selected_client=selected_client, object_details_data=object_details_data: self.object_details_layout(
+                    f"> Home > Client > {button.get_label()}", selected_client, self, object_details_data
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
-        urwid.connect_signal(buttons["other_buttons"][2], "click", lambda button: self.client_creation())
+
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+            ("Create", self.client_creation()),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def client_creation(self):
         """
@@ -94,7 +120,7 @@ class ClientController(BaseController):
         """
         # Define the labels for the form
         button_labels = ["Create Client"]
-        edit_labels = ["Name: ", "Email: ", "Phone: ", "Compagny: ", "Sales contact (Email)"]
+        edit_labels = ["Name: ", "Email: ", "Phone: ", "Compagny: "]
 
         # Create the form layout
         layout_dict = self.base_view.create_form_layout("> Home > Clients > Create", button_labels, edit_labels)
@@ -124,9 +150,9 @@ class ClientController(BaseController):
             "email_address": layout_dict["edits"][1].get_edit_text(),
             "phone": layout_dict["edits"][2].get_edit_text(),
             "compagny": layout_dict["edits"][3].get_edit_text(),
-            "sales_contact_id": layout_dict["edits"][4].get_edit_text(),
+            "sales_contact_id": self.current_user.email_address,
         }
-        user_exist = UserService().get_by_email(layout_dict["edits"][4].get_edit_text(), self.session)
+        user_exist = UserService().get_by_email(self.current_user.email_address, self.session)
         if user_exist:
             BaseService(Client).create(client_data, self.session)
             self.history.pop()
@@ -146,32 +172,30 @@ class ClientController(BaseController):
         """
         client_template_dict = client_object.to_dict()
         new_client_template_dict = BaseService(Client).remove_attributes_from_object(client_template_dict, ["Creation date", "Last update"])
-        urwid.connect_signal(
-            buttons[0],
-            "click",
-            lambda button: self.pre_filled_form_page(
-                f"> Home > Clients > {client_object.email_address} > Modify",
-                new_client_template_dict,
-                client_object,
-                ClientService(),
+        sentry_sdk.capture_message(f"client_email: {client_object.email_address}")
+        button_actions = [
+            (
+                "Modify",
+                lambda: self.pre_filled_form_page(
+                    f"> Home > Clients > {client_object.email_address} > Modify",
+                    new_client_template_dict,
+                    client_object,
+                    ClientService(),
+                ),
             ),
-        )
-        urwid.connect_signal(
-            buttons[1],
-            "click",
-            lambda button: self.show_delete_confirmation(client_object, BaseService(Client)),
-        )
-        urwid.connect_signal(
-            buttons[2],
-            "click",
-            lambda button: ContractController(self.session, self.base_view, self.current_user, self.history).paginated_contracts_displayed(
-                f"> Home > Client > {client_object.email_address} > Contracts", "client", client_object.email_address
+            ("Delete", lambda: self.show_delete_confirmation(client_object, BaseService(Client))),
+            (
+                "Contracts",
+                lambda: ContractController(self.session, self.base_view, self.current_user, self.history).paginated_contracts_displayed(
+                    f"> Home > Client > {client_object.email_address} > Contracts", "client", client_object.email_address
+                ),
             ),
-        )
-        urwid.connect_signal(
-            buttons[3],
-            "click",
-            lambda button: EventController(self.session, self.base_view, self.current_user, self.history).paginated_events_displayed(
-                f"> Home > Client > {client_object.email_address} > Events", "client", client_object.email_address
+            (
+                "Events",
+                lambda: EventController(self.session, self.base_view, self.current_user, self.history).paginated_events_displayed(
+                    f"> Home > Client > {client_object.email_address} > Events", "client", client_object.email_address
+                ),
             ),
-        )
+        ]
+
+        self.connect_button_signals(buttons, button_actions)

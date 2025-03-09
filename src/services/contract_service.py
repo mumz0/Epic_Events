@@ -153,3 +153,19 @@ class ContractService(BaseService):
         :rtype: list
         """
         return self.repository.filtered_by_contract_payed_or_not(session, is_payed)
+
+    def check_if_contract_is_signed(self, session, contract_id) -> bool:
+        """
+        Check if a contract is signed.
+
+        :param session: The SQLAlchemy session.
+        :type session: Session
+        :param contract_id: The ID of the contract.
+        :type contract_id: str
+        :return: True if the contract is signed, False otherwise.
+        :rtype: bool
+        """
+        contract = self.repository.get(contract_id, session)
+        if contract is None:
+            raise ValueError(f"Contract with ID '{contract_id}' not found.")
+        return contract.status_id == "Signed"

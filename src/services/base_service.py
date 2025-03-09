@@ -17,7 +17,7 @@ class BaseService:
     :type repository: BaseRepository
     """
 
-    def __init__(self, model, repository=None):
+    def __init__(self, model=None, repository=None):
         self.model = model
         self.repository = repository or BaseRepository(model)
 
@@ -141,3 +141,15 @@ class BaseService:
         for attr in attributes_to_remove:
             object_template.pop(attr, None)
         return object_template
+
+    @staticmethod
+    def datetime_to_string(date_obj):
+        """
+        Convert a datetime object to a date string.
+
+        :param date_obj: Datetime object.
+        :type date_obj: datetime
+        :return: Corresponding date string in the format 'YYYY/MM/DD'.
+        :rtype: str
+        """
+        return date_obj.strftime("%Y/%m/%d")

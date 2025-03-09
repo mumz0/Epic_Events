@@ -2,6 +2,8 @@
 This module defines the BaseRepository class which provides basic methods for interacting with the database.
 """
 
+import sentry_sdk
+
 
 class BaseRepository:
     """
@@ -55,7 +57,17 @@ class BaseRepository:
         :return: The retrieved instance.
         :rtype: object
         """
-        return session.query(self.model).get(instance_id)
+        try:
+            instance = session.query(self.model).get(instance_id)
+            if not instance:
+                error_message = f"Instance with ID {instance_id} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+            return instance
+        except Exception as e:
+            error_message = f"Error retrieving instance by ID: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)
 
     def get_id(self, instance_name, session):
         """
@@ -68,7 +80,17 @@ class BaseRepository:
         :return: The retrieved instance.
         :rtype: object
         """
-        return session.query(self.model).filter_by(name=instance_name).first()
+        try:
+            instance = session.query(self.model).filter_by(name=instance_name).first()
+            if not instance:
+                error_message = f"Instance with name {instance_name} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+            return instance
+        except Exception as e:
+            error_message = f"Error retrieving instance by name: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)
 
     def get_all(self, session):
         """
@@ -79,7 +101,13 @@ class BaseRepository:
         :return: A list of all instances of the model.
         :rtype: list
         """
-        return session.query(self.model).all()
+        try:
+            instances = session.query(self.model).all()
+            return instances
+        except Exception as e:
+            error_message = f"Error retrieving all instances: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)
 
     def update_obj(self, instance_id, data, session):
         """
@@ -94,12 +122,22 @@ class BaseRepository:
         :return: The updated instance.
         :rtype: object
         """
-        instance = session.query(self.model).get(instance_id)
-        for key, value in data.items():
-            if hasattr(instance, key):
-                setattr(instance, key, value)
-        session.commit()
-        return instance
+        try:
+            instance = session.query(self.model).get(instance_id)
+            if not instance:
+                error_message = f"Instance with ID {instance_id} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+
+            for key, value in data.items():
+                if hasattr(instance, key):
+                    setattr(instance, key, value)
+            session.commit()
+            return instance
+        except Exception as e:
+            error_message = f"Error updating instance: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)
 
     def update_attr(self, instance_id, attribute_name, value, session):
         """
@@ -116,13 +154,20 @@ class BaseRepository:
         :return: The updated instance.
         :rtype: object
         """
-        instance = session.query(self.model).get(instance_id)
-        if not instance:
-            raise ValueError(f"Instance with ID {instance_id} not found.")
+        try:
+            instance = session.query(self.model).filter_by(id=instance_id).first()
+            if not instance:
+                error_message = f"Instance with ID {instance_id} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
 
-        setattr(instance, attribute_name, value)
-        session.commit()
-        return instance
+            setattr(instance, attribute_name, value)
+            session.commit()
+            return instance
+        except Exception as e:
+            error_message = f"Error updating attribute: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)
 
     def delete(self, instance_id, session):
         """
@@ -135,7 +180,17 @@ class BaseRepository:
         :return: The deleted instance.
         :rtype: object
         """
-        instance = session.query(self.model).get(instance_id)
-        session.delete(instance)
-        session.commit()
-        return instance
+        try:
+            instance = session.query(self.model).filter_by(id=instance_id).first()
+            if not instance:
+                error_message = f"Instance with ID {instance_id} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+
+            session.delete(instance)
+            session.commit()
+            return instance
+        except Exception as e:
+            error_message = f"Error deleting instance: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)

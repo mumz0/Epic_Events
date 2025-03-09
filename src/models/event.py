@@ -45,7 +45,7 @@ class Event(Base):
     notes = Column(String)
     client_id = Column(Integer, ForeignKey("client.email_address"), nullable=False)
     contract_id = Column(Integer, ForeignKey("contract.id"), nullable=False)
-    support_user_id = Column(Integer, ForeignKey("user.email_address"), nullable=False)
+    support_user_id = Column(Integer, ForeignKey("user.email_address"), nullable=True)
 
     client = relationship("Client", backref="events")
     contract = relationship("Contract", backref="events")

@@ -1,5 +1,7 @@
 """This file defines the RoleRepository class for handling operations related to Role entities."""
 
+import sentry_sdk
+
 from src.models.role import Role
 from src.repositories.base_repository import BaseRepository
 
@@ -30,7 +32,13 @@ class RoleRepository(BaseRepository):
         :return: A list of roles excluding the 'admin' role.
         :rtype: list
         """
-        return session.query(Role).filter(Role.name != "admin").all()
+        try:
+            roles = session.query(Role).filter(Role.name != "admin").all()
+            return roles
+        except Exception as e:
+            error_message = f"Error retrieving all roles except 'admin': {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e
 
     def get_by_name(self, name, session):
         """
@@ -43,4 +51,14 @@ class RoleRepository(BaseRepository):
         :return: A Role object if found, otherwise None.
         :rtype: Role | None
         """
-        return session.query(Role).filter_by(name=name).first()
+        try:
+            role = session.query(Role).filter_by(name=name).first()
+            if not role:
+                error_message = f"Role with name {name} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+            return role
+        except Exception as e:
+            error_message = f"Error retrieving role by name: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e

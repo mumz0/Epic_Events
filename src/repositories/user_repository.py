@@ -1,5 +1,7 @@
 """This file defines the UserRepository class for handling operations related to User entities."""
 
+import sentry_sdk
+
 from src.models.user import User
 from src.repositories.base_repository import BaseRepository
 
@@ -23,18 +25,26 @@ class UserRepository(BaseRepository):
 
     def find_by_email(self, email: str, session):
         """
-        Find a user by email and password.
+        Find a user by email.
 
         :param email: The user's email.
         :type email: str
-        :param password: The user's password.
-        :type password: str
         :param session: The SQLAlchemy session.
         :type session: Session
         :return: The user if found, None otherwise.
         :rtype: User or None
         """
-        return session.query(User).filter(User.email_address == email).first()
+        try:
+            user = session.query(User).filter(User.email_address == email).first()
+            if not user:
+                error_message = f"User with email {email} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+            return user
+        except Exception as e:
+            error_message = f"Error finding user by email: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e
 
     def update_token(self, user_id: int, token: str, session):
         """
@@ -47,9 +57,18 @@ class UserRepository(BaseRepository):
         :param session: The SQLAlchemy session.
         :type session: Session
         """
-        user = session.query(User).get(user_id)
-        user.token = token
-        session.commit()
+        try:
+            user = session.query(User).get(user_id)
+            if not user:
+                error_message = f"User with ID {user_id} not found."
+                sentry_sdk.capture_message(error_message)
+                raise ValueError(error_message)
+            user.token = token
+            session.commit()
+        except Exception as e:
+            error_message = f"Error updating token for user ID {user_id}: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e
 
     def get_all(self, session):
         """
@@ -60,4 +79,10 @@ class UserRepository(BaseRepository):
         :return: A list of all instances of the model.
         :rtype: list
         """
-        return session.query(self.model).filter(self.model.role_id != 1).all()
+        try:
+            users = session.query(self.model).filter(self.model.role_id != 1).all()
+            return users
+        except Exception as e:
+            error_message = f"Error retrieving all users except admin: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e

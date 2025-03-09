@@ -1,7 +1,9 @@
 # pylint: disable=W0246
 """This file defines the ContractController class for handling user-related operations."""
 
+import sentry_sdk
 import urwid
+from sentry_sdk.integrations.serverless import serverless_function
 
 from src.controllers.base_controller import BaseController
 from src.models.contract import Contract
@@ -50,7 +52,8 @@ class ContractController(BaseController):
         self.history.append(layout)
         self.base_view.update_screen(layout)
 
-    def define_data_to_display(self, filter_type, client_email_address=None):
+    @serverless_function
+    def define_data_to_display(self, filter_type, client_email_address):
         """
         Retrieves contract objects based on the given filter.
 
@@ -64,7 +67,10 @@ class ContractController(BaseController):
         if filter_type == "all":
             contract_objects = BaseService(self.current_user, ContractRepository()).get_all(self.session)
         elif filter_type == "client":
+
+            sentry_sdk.capture_message(f"client_email_address: {client_email_address}")
             contract_objects = ContractService().filter_by_email_adress(client_email_address, self.session)
+            sentry_sdk.capture_message(f"contract_objects: {contract_objects}")
         elif filter_type == "current_user":
             contract_objects = ContractService().filter_by_sales_email_adress(self.current_user.email_address, self.session)
         elif filter_type == "signed":
@@ -99,7 +105,7 @@ class ContractController(BaseController):
         elif filter_type == "client":
             self.create_client_contracts_paginated_buttons_signal(paginated_view, buttons, contract_objects, client_email_address)
         elif filter_type in {"current_user", "signed", "not signed", "payed", "not payed"}:
-            self.create_current_user_paginated_buttons_signal(paginated_view, buttons, contract_objects)
+            self.create_filtered_contracts_paginated_buttons_signal(paginated_view, buttons, contract_objects)
 
     def create_client_contracts_paginated_buttons_signal(self, paginated_view, buttons, contract_objects, client_email_address):
         """
@@ -118,29 +124,41 @@ class ContractController(BaseController):
         :type client_email_address: str
         """
         for button in buttons["buttons_items"]:
+            selected_contract = self.select_item_in_lst(contract_objects, button.get_label())
             object_details_data = {
                 "title": f"> Home > Clients > {client_email_address} > Contracts > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": contract_objects,
+                "obj_lst": selected_contract,
                 "service": self,
-                "buttons_label": ["Modify", "Delete"],
+                "buttons_label": [],
             }
+
+            if selected_contract.sales_contact_id == self.current_user.email_address:
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "management":
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = ["Modify", "Delete"]
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
+                lambda button=button, selected_contract=selected_contract, object_details_data=object_details_data: self.object_details_layout(
                     f"> Home > Client > {client_email_address} > Contracts > {button.get_label()}",
-                    button.get_label(),
-                    contract_objects,
+                    selected_contract,
                     self,
                     object_details_data,
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
-        urwid.connect_signal(buttons["other_buttons"][2], "click", lambda button: self.create_client_contracts(client_email_address))
 
-    def create_current_user_paginated_buttons_signal(self, paginated_view, buttons, contract_objects):
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+            ("Create", lambda button: self.create_client_contracts(client_email_address)),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
+
+    def create_filtered_contracts_paginated_buttons_signal(self, paginated_view, buttons, contract_objects):
         """
         Create signals for paginated buttons and connect them to their respective actions.
 
@@ -156,22 +174,35 @@ class ContractController(BaseController):
         :type contract_objects: list
         """
         for button in buttons["buttons_items"]:
+            selected_contract = self.select_item_in_lst(contract_objects, button.get_label())
             object_details_data = {
                 "title": f"> Home > Contracts > My contracts > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": contract_objects,
+                "obj_lst": selected_contract,
                 "service": self,
-                "buttons_label": ["Modify", "Delete"],
+                "buttons_label": [],
             }
+            if selected_contract.sales_contact_id == self.current_user.email_address:
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "management":
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = ["Modify", "Delete"]
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"> Home > Client > {button.get_label()}", button.get_label(), contract_objects, self, object_details_data
+                lambda button=button, selected_contract=selected_contract, object_details_data=object_details_data: self.object_details_layout(
+                    f"> Home > Client > {button.get_label()}", selected_contract, self, object_details_data
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
+
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def create_all_contracts_paginated_buttons_signal(self, paginated_view, buttons, contract_objects):
         """
@@ -189,43 +220,40 @@ class ContractController(BaseController):
         :type contract_objects: list
         """
         for button in buttons["buttons_items"]:
+            selected_contract = self.select_item_in_lst(contract_objects, button.get_label())
             object_details_data = {
                 "title": f"> Home > Contracts > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": contract_objects,
+                "obj_lst": selected_contract,
                 "service": self,
-                "buttons_label": ["Modify", "Delete"],
+                "buttons_label": [],
             }
+            if selected_contract.sales_contact_id == self.current_user.email_address:
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "management":
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = ["Modify", "Delete"]
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"> Home > Client > {button.get_label()}", button.get_label(), contract_objects, self, object_details_data
+                lambda button=button, selected_contract=selected_contract, object_details_data=object_details_data: self.object_details_layout(
+                    f"> Home > Contracts > {button.get_label()}", selected_contract, self, object_details_data
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
-        urwid.connect_signal(
-            buttons["other_buttons"][2],
-            "click",
-            lambda button: self.paginated_contracts_displayed("> Home > Contracts > My contracts", "current_user"),
-        )
-        urwid.connect_signal(
-            buttons["other_buttons"][3], "click", lambda button: self.paginated_contracts_displayed("> Home > Contracts > Signed contracts", "signed")
-        )
-        urwid.connect_signal(
-            buttons["other_buttons"][4],
-            "click",
-            lambda button: self.paginated_contracts_displayed("> Home > Contracts > Not signed contracts", "not signed"),
-        )
-        urwid.connect_signal(
-            buttons["other_buttons"][5], "click", lambda button: self.paginated_contracts_displayed("> Home > Contracts > Payed contracts", "payed")
-        )
-        urwid.connect_signal(
-            buttons["other_buttons"][6],
-            "click",
-            lambda button: self.paginated_contracts_displayed("> Home > Contracts > Not payed contracts", "not payed"),
-        )
+
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+            ("My contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > My contracts", "current_user")),
+            ("Signed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Signed contracts", "signed")),
+            ("Not signed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Not signed contracts", "not signed")),
+            ("Payed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Payed contracts", "payed")),
+            ("Not payed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Not payed contracts", "not payed")),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def define_page_buttons_nedded(self, contracts_label, filter_type):
         """
@@ -240,13 +268,24 @@ class ContractController(BaseController):
         :rtype: dict or None
         """
         if filter_type == "all":
-            return {
+            _dict = {
                 "users_label": contracts_label,
-                "buttons": ["Previous", "Next", "My contracts", "Signed contracts", "Not signed contracts", "Payed contracts", "Not payed contracts"],
+                "buttons": ["Previous", "Next"],
             }
+            if self.current_user.role.name in ["admin", "sales", "management"]:
+                _dict["buttons"].append("My contracts")
+            elif self.current_user.role.name in ["admin", "sales"]:
+                _dict["buttons"].append("Signed contracts")
+                _dict["buttons"].append("Not signed contracts")
+                _dict["buttons"].append("Payed contracts")
+                _dict["buttons"].append("Not payed contracts")
+            return _dict
 
         if filter_type == "client":
-            return {"users_label": contracts_label, "buttons": ["Previous", "Next", "Create"]}
+            _dict = {"users_label": contracts_label, "buttons": ["Previous", "Next"]}
+            if self.current_user.role.name in ["admin", "sales", "management"]:
+                _dict["buttons"].append("Create")
+            return _dict
 
         if filter_type in {"current_user", "signed", "not signed", "payed", "not payed"}:
             return {"users_label": contracts_label, "buttons": ["Previous", "Next"]}
@@ -272,7 +311,7 @@ class ContractController(BaseController):
         ]
 
         # Create the form layout
-        layout_dict = self.base_view.create_form_layout("> Home > Contracts > Create", button_labels, edit_labels)
+        layout_dict = self.base_view.create_form_layout(f"> Home > Contracts > {client_email_address} > Create", button_labels, edit_labels)
 
         # Connect the signal for the create user button
         urwid.connect_signal(
@@ -332,18 +371,18 @@ class ContractController(BaseController):
         new_client_template_dict = BaseService(Contract).remove_attributes_from_object(
             client_template_dict, ["ID", "Client Name", "Client Email address", "Client Phone", "Client Compagny", "Creation date"]
         )
-        urwid.connect_signal(
-            buttons[0],
-            "click",
-            lambda button: self.pre_filled_form_page(
-                f"> Home > Client > {contract_object.id} > Modify",
-                new_client_template_dict,
-                contract_object,
-                ContractService(),
+
+        button_actions = [
+            (
+                "Modify",
+                lambda: self.pre_filled_form_page(
+                    f"> Home > Client > {contract_object.id} > Modify",
+                    new_client_template_dict,
+                    contract_object,
+                    ContractService(),
+                ),
             ),
-        )
-        urwid.connect_signal(
-            buttons[1],
-            "click",
-            lambda button: self.show_delete_confirmation(contract_object, BaseService(Contract)),
-        )
+            ("Delete", lambda: self.show_delete_confirmation(contract_object, BaseService(Contract))),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
