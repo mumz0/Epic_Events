@@ -150,7 +150,29 @@ class BaseController:
 
         self.base_view.update_screen(layout)
 
-    def object_details_layout(self, title, item_label, objects_lst, controller, buttons_labels):
+    def select_item_in_lst(self, objects_lst, item_label):
+        """
+        Select an item from a list of objects based on a given label.
+
+        This method iterates through a list of objects and selects the first object
+        that matches the given label. The match is determined by either the object's
+        `get_identifier` method or its `id` attribute.
+
+        :param objects_lst: List of objects to search through.
+        :type objects_lst: list
+        :param item_label: The label to match against the objects' identifiers or ids.
+        :type item_label: str
+        :return: The first object that matches the given label, or None if no match is found.
+        :rtype: object or None
+        """
+        selected_object = None
+        for obj in objects_lst:
+            if obj.get_identifier() == item_label or obj.id == item_label:
+                selected_object = obj
+                break
+        return selected_object
+
+    def object_details_layout(self, title, selected_object, controller, buttons_labels):
         """
         Creates and displays the layout for object details.
         :param title: The title of the object details frame.
@@ -160,13 +182,6 @@ class BaseController:
         :param objects_lst: The list of objects to search for the item.
         :type objects_lst: list
         """
-        selected_object = None
-        for obj in objects_lst:
-            if obj.get_identifier() == item_label:
-                selected_object = obj
-            elif obj.id == item_label:
-                selected_object = obj
-                break
         frame, buttons = self.base_view.create_object_details_frame(title, selected_object, buttons_labels)
         controller.create_details_view_buttons_signal(buttons, selected_object)
         self.history.append(frame)
@@ -245,3 +260,18 @@ class BaseController:
                 # Handle other types of items if necessary
                 buttons_label_lst.append(obj.email_address)
         return buttons_label_lst
+
+    def connect_button_signals(self, buttons, button_actions):
+        """
+        Connect signals to buttons based on the provided actions.
+
+        :param buttons: A dictionary containing button items and other navigation buttons.
+        :type buttons: dict
+        :param button_actions: A list of tuples containing button labels and their corresponding actions.
+        :type button_actions: list
+        """
+        for button_key, action in button_actions:
+            for button in buttons["other_buttons"]:
+                if button_key == button.get_label():
+                    urwid.connect_signal(button, "click", lambda button, action=action: action())
+                    break

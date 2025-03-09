@@ -101,3 +101,38 @@ class EventService(BaseService):
             uid_with_prefix = f"EVENT{uid[:length]}"
             if not session.query(Event).filter(Event.id == uid_with_prefix).first():
                 return uid_with_prefix
+
+    def filter_by_support_user_on_event(self, session, is_support: bool) -> list:
+        """
+        Filter events by support user on event.
+
+        :param session: The SQLAlchemy session.
+        :type session: Session
+        :param True: The support user on event.
+        :type True: bool
+        :return: A list of events.
+        :rtype: list
+        """
+        return self.repository.filter_by_support_user_on_event(session, is_support)
+
+    def prepare_data_and_update(self, data, obj, session) -> dict:
+        """
+        Create the data to update the user.
+
+        :param data: The data to update the user.
+        :type data: dict
+        :return: The data to update the user.
+        :rtype: dict
+        """
+        datetime_start_date = EventService().string_date_to_datetime(data["Start Date"])
+        datetime_end_date = EventService().string_date_to_datetime(data["End Date"])
+        data = {
+            "name": data["Name"],
+            "start_date": datetime_start_date,
+            "end_date": datetime_end_date,
+            "location": data["Location"],
+            "attendees": data["Attendees"],
+            "notes": data["Notes"],
+            "support_user_id": data["Support User ID"],
+        }
+        return self.repository.update_obj(obj.id, data, session)

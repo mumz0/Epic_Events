@@ -47,8 +47,10 @@ class UserController(BaseController):
         users_label = self.get_button_data_for_items(user_objects)
         buttons_label = {
             "users_label": users_label,
-            "buttons": ["Previous", "Next", "Create"],
+            "buttons": ["Previous", "Next"],
         }
+        if self.current_user.role.name in ["admin", "management"]:
+            buttons_label["buttons"].append("Create")
         layout, buttons = paginated_view.display_page(0, buttons_label)
 
         self.create_paginated_buttons_signal(paginated_view, buttons, user_objects)
@@ -69,24 +71,29 @@ class UserController(BaseController):
         :type user_objects: list
         """
         for button in buttons["buttons_items"]:
+            selected_user = self.select_item_in_lst(user_objects, button.get_label())
             object_details_data = {
                 "title": f"Home > Users > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": user_objects,
+                "obj_lst": selected_user,
                 "service": self,
-                "buttons_label": ["Modify", "Delete"],
+                "buttons_label": [],
             }
+            if self.current_user.role.name in ["admin", "management"]:
+                object_details_data["buttons_label"].append("Modify")
+                object_details_data["buttons_label"].append("Delete")
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"Home > Client > {button.get_label()}", button.get_label(), user_objects, self, object_details_data
+                lambda button=button, selected_user=selected_user, object_details_data=object_details_data: self.object_details_layout(
+                    f"Home > Client > {button.get_label()}", selected_user, self, object_details_data
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button=button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button=button: paginated_view.next_page())
-        # if buttons["create_button"] is not None:
-        urwid.connect_signal(buttons["other_buttons"][2], "click", lambda button=button: self.user_creation())
+
+        button_actions = [("Previous", paginated_view.previous_page()), ("Next", paginated_view.next_page()), ("Create", self.user_creation())]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def create_details_view_buttons_signal(self, buttons, user_object):
         """
@@ -98,14 +105,22 @@ class UserController(BaseController):
         :type user_object: User
         """
         user_template_dict = user_object.to_dict()
-        urwid.connect_signal(
-            buttons[0],
-            "click",
-            lambda button: self.pre_filled_form_page(
-                f"Home > Users > {user_object.email_address} > Modify", user_template_dict, user_object, UserService()
+        new_user_template_dict = BaseService(User).remove_attributes_from_object(user_template_dict, ["ID"])
+
+        button_actions = [
+            (
+                "Modify",
+                lambda: self.pre_filled_form_page(
+                    f"Home > Users > {user_object.email_address} > Modify",
+                    new_user_template_dict,
+                    user_object,
+                    UserService(),
+                ),
             ),
-        )
-        urwid.connect_signal(buttons[1], "click", lambda button: self.show_delete_confirmation(user_object, BaseService(User)))
+            ("Delete", lambda: self.show_delete_confirmation(user_object, BaseService(User))),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def user_creation(self):
         """
@@ -146,9 +161,11 @@ class UserController(BaseController):
         response = AuthService(self.current_user).signup_process(
             layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), layout_dict["edits"][2].get_edit_text(), self.session
         )
-        # TODO: Add redirect fonction after user creation
+
         if response:
             self.history.pop()
             self.base_view.update_screen(self.history[-1])
         else:
-            self.base_view.display_message("User already exists. Please try again.")
+            popup, buttons = self.base_view.create_message_popup("User already exists. Please try again.")
+            urwid.connect_signal(buttons[0], "click", lambda button: self.remove_popup())
+            self.base_view.update_screen(popup)

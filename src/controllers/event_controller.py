@@ -68,6 +68,8 @@ class EventController(BaseController):
             event_objects = EventService().filter_by_email_adress(email_address, self.session)
         elif filter_type == "current_user":
             event_objects = EventService().filter_by_sales_email_adress(self.current_user.email_address, self.session)
+        elif filter_type == "no support":
+            event_objects = EventService().filter_by_support_user_on_event(self.session, False)
         else:
             event_objects = None
         return event_objects
@@ -90,48 +92,59 @@ class EventController(BaseController):
         if filter_type == "all":
             self.create_all_contracts_paginated_buttons_signal(paginated_view, buttons, event_objects)
         if filter_type == "client":
-            self.create_client_contracts_paginated_buttons_signal(paginated_view, buttons, event_objects, client_email_address)
-        if filter_type == "current_user":
+            self.create_client_events_paginated_buttons_signal(paginated_view, buttons, event_objects, client_email_address)
+        if filter_type in {"current_user", "no support"}:
             self.create_current_user_paginated_buttons_signal(paginated_view, buttons, event_objects)
 
-    def create_client_contracts_paginated_buttons_signal(self, paginated_view, buttons, event_objects, client_email_address):
+    def create_client_events_paginated_buttons_signal(self, paginated_view, buttons, event_objects, client_email_address):
         """
-        Create paginated buttons signal for client contracts.
+        Create signals for paginated buttons in the client events view.
 
-        This method connects signals to the buttons in the paginated view for client contracts.
-        It sets up the object details data and connects the click events to the appropriate handlers.
+        This method sets up the signals for the buttons in a paginated view of client events.
+        It connects each button to display the details of the corresponding event object
+        and also connects navigation buttons to handle pagination.
 
         :param paginated_view: The paginated view object that handles pagination.
         :type paginated_view: PaginatedView
-        :param buttons: A dictionary containing button items and other buttons.
+        :param buttons: A dictionary containing button items and other navigation buttons.
         :type buttons: dict
-        :param contract_objects: A list of contract objects associated with the client.
-        :type contract_objects: list
+        :param event_objects: A list of event objects associated with the client.
+        :type event_objects: list
         :param client_email_address: The email address of the client.
         :type client_email_address: str
         """
         for button in buttons["buttons_items"]:
+            selected_event = self.select_item_in_lst(event_objects, button.get_label())
             object_details_data = {
                 "title": f"> Home > Clients > {client_email_address} > Events > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": event_objects,
+                "obj_lst": selected_event,
                 "service": self,
-                "buttons_label": ["Modify", "Delete"],
+                "buttons_label": [],
             }
+            if self.current_user.role.name in ["management", "support"]:
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = ["Modify", "Delete"]
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
+                lambda button=button, selected_event=selected_event, object_details_data=object_details_data: self.object_details_layout(
                     f"> Home > Client > {client_email_address} > Events > {button.get_label()}",
-                    button.get_label(),
-                    event_objects,
+                    selected_event,
                     self,
                     object_details_data,
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
-        urwid.connect_signal(buttons["other_buttons"][2], "click", lambda button: self.create_client_contracts(client_email_address))
+
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+            ("Create", lambda: self.create_client_event(client_email_address)),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def create_current_user_paginated_buttons_signal(self, paginated_view, buttons, event_objects):
         """
@@ -145,26 +158,38 @@ class EventController(BaseController):
         :type paginated_view: PaginatedView
         :param buttons: A dictionary containing the button items and other pagination buttons.
         :type buttons: dict
-        :param contract_objects: A list of contract objects to be displayed.
-        :type contract_objects: list
+        :param event_objects: A list of event objects to be displayed.
+        :type event_objects: list
         """
         for button in buttons["buttons_items"]:
+            selected_event = self.select_item_in_lst(event_objects, button.get_label())
+
             object_details_data = {
                 "title": f"> Home > Events > My events > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": event_objects,
+                "obj_lst": selected_event,
                 "service": self,
-                "buttons_label": ["Modify", "Delete", "Client"],
+                "buttons_label": [],
             }
+            if self.current_user.role.name in ["management", "support"]:
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = ["Modify", "Delete"]
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"> Home > Client > {button.get_label()}", button.get_label(), event_objects, self, object_details_data
+                lambda button=button, selected_event=selected_event, object_details_data=object_details_data: self.object_details_layout(
+                    f"> Home > Client > {button.get_label()}", selected_event, self, object_details_data
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
+
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def create_all_contracts_paginated_buttons_signal(self, paginated_view, buttons, event_objects):
         """
@@ -178,29 +203,40 @@ class EventController(BaseController):
         :type paginated_view: PaginatedView
         :param buttons: A dictionary containing button items and other navigation buttons.
         :type buttons: dict
-        :param contract_objects: A list of contract objects to be displayed.
-        :type contract_objects: list
+        :param event_objects: A list of contract objects to be displayed.
+        :type event_objects: list
         """
         for button in buttons["buttons_items"]:
+            selected_event = self.select_item_in_lst(event_objects, button.get_label())
+
             object_details_data = {
                 "title": f"Home > Events > {button.get_label()}",
                 "item_identifier": button.get_label(),
-                "obj_lst": event_objects,
+                "obj_lst": selected_event,
                 "service": self,
-                "buttons_label": ["Modify", "Delete"],
+                "buttons_label": [],
             }
+            if self.current_user.role.name in ["management", "support"]:
+                object_details_data["buttons_label"] = ["Modify"]
+            elif self.current_user.role.name == "admin":
+                object_details_data["buttons_label"] = ["Modify", "Delete"]
+
             urwid.connect_signal(
                 button,
                 "click",
-                lambda button=button, object_details_data=object_details_data: self.object_details_layout(
-                    f"> Home > Client > {button.get_label()}", button.get_label(), event_objects, self, object_details_data
+                lambda button=button, selected_event=selected_event, object_details_data=object_details_data: self.object_details_layout(
+                    f"> Home > Client > {button.get_label()}", selected_event, self, object_details_data
                 ),
             )
-        urwid.connect_signal(buttons["other_buttons"][0], "click", lambda button: paginated_view.previous_page())
-        urwid.connect_signal(buttons["other_buttons"][1], "click", lambda button: paginated_view.next_page())
-        urwid.connect_signal(
-            buttons["other_buttons"][2], "click", lambda button: self.paginated_events_displayed("> Home > Events > My events", "current_user")
-        )
+
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+            ("My events", lambda: self.paginated_events_displayed("> Home > Events > My events", "current_user")),
+            ("No support", lambda: self.paginated_events_displayed("> Home > Events > No support", "no support")),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
 
     def define_page_buttons_nedded(self, event_label, filter_type):
         """
@@ -215,17 +251,25 @@ class EventController(BaseController):
         :rtype: dict or None
         """
         if filter_type == "all":
-            return {"users_label": event_label, "buttons": ["Previous", "Next", "My events"]}
+            _dict = {"users_label": event_label, "buttons": ["Previous", "Next"]}
+            if self.current_user.role.name in ["admin", "management"]:
+                _dict["buttons"].append("No support")
+            elif self.current_user.role.name == ["admin", "support", "sales"]:
+                _dict["buttons"].append("My events")
+            return _dict
 
         if filter_type == "client":
-            return {"users_label": event_label, "buttons": ["Previous", "Next", "Create"]}
+            _dict = {"users_label": event_label, "buttons": ["Previous", "Next"]}
+            if self.current_user.role.name in ["admin", "sales"]:
+                _dict["buttons"].append("Create")
+            return _dict
 
-        if filter_type == "current_user":
+        if filter_type in {"current_user", "no support"}:
             return {"users_label": event_label, "buttons": ["Previous", "Next"]}
 
         return None
 
-    def create_client_contracts(self, client_email_address):
+    def create_client_event(self, client_email_address):
         """
         Create the client contracts view.
 
@@ -249,7 +293,7 @@ class EventController(BaseController):
         ]
 
         # Create the form layout
-        layout_dict = self.base_view.create_form_layout("> Home > Events > Create", button_labels, edit_labels)
+        layout_dict = self.base_view.create_form_layout(f"> Home > Events > {client_email_address} > Create", button_labels, edit_labels)
 
         # Connect the signal for the create user button
         urwid.connect_signal(
@@ -273,58 +317,67 @@ class EventController(BaseController):
                             editable fields for contract data.
         :type layout_dict: dict
         :param client_email_address: The email address of the client for whom the
-                                     contract is being created.
+                                    contract is being created.
         :type client_email_address: str
         """
-        datetime_start_date = EventService().string_date_to_datetime(layout_dict["edits"][1].get_edit_text())
-        datetime_end_date = EventService().string_date_to_datetime(layout_dict["edits"][2].get_edit_text())
-        event_data = {
-            "id": EventService().generate_uid(self.session),
-            "name": layout_dict["edits"][0].get_edit_text(),
-            "start_date": datetime_start_date,
-            "end_date": datetime_end_date,
-            "location": layout_dict["edits"][3].get_edit_text(),
-            "attendees": layout_dict["edits"][4].get_edit_text(),
-            "notes": layout_dict["edits"][5].get_edit_text(),
-            "contract_id": layout_dict["edits"][6].get_edit_text(),
-            "client_id": client_email_address,
-            "support_user_id": layout_dict["edits"][7].get_edit_text(),
-        }
+        try:
+            datetime_start_date = EventService().string_date_to_datetime(layout_dict["edits"][1].get_edit_text())
+            datetime_end_date = EventService().string_date_to_datetime(layout_dict["edits"][2].get_edit_text())
+            event_data = {
+                "id": EventService().generate_uid(self.session),
+                "name": layout_dict["edits"][0].get_edit_text(),
+                "start_date": datetime_start_date,
+                "end_date": datetime_end_date,
+                "location": layout_dict["edits"][3].get_edit_text(),
+                "attendees": layout_dict["edits"][4].get_edit_text(),
+                "notes": layout_dict["edits"][5].get_edit_text(),
+                "contract_id": layout_dict["edits"][6].get_edit_text(),
+                "client_id": client_email_address,
+                "support_user_id": layout_dict["edits"][7].get_edit_text(),
+            }
+            is_signed = ContractService().check_if_contract_is_signed(self.session, event_data["contract_id"])
+            if is_signed:
+                is_created = BaseService(Event).create(event_data, self.session)
+                if is_created:
+                    self.history.pop()
+                    self.base_view.update_screen(self.history[0])
+            else:
+                popup, buttons = self.base_view.create_message_popup("Contract not signed yet.")
+                urwid.connect_signal(buttons[0], "click", lambda button: self.remove_popup())
+                self.base_view.update_screen(popup)
 
-        if BaseService(Event).create(event_data, self.session):
-            self.history.pop()
-
-            self.base_view.update_screen(self.history[0])
-        else:
-            self.base_view.display_message("Event creation failed. Please try again.")
+        except ValueError as e:
+            popup, button = self.base_view.create_message_popup(str(e))
+            urwid.connect_signal(button, "click", lambda button: self.remove_popup())
+            self.base_view.update_screen(popup)
 
     def create_details_view_buttons_signal(self, buttons, event_object):
         """
         Create signals for the details view buttons.
 
-        This method connects signals to the provided buttons for modifying and deleting a contract object.
-        It logs the current user and the client template dictionary after removing specific attributes.
+        This method connects signals to the provided buttons for modifying and deleting an event object.
+        It logs the current user and the event template dictionary after removing specific attributes.
 
         :param buttons: List of buttons to which signals will be connected.
         :type buttons: list
-        :param contract_object: The contract object for which the details view buttons are created.
-        :type contract_object: Contract
+        :param event_object: The event object for which the details view buttons are created.
+        :type event_object: Event
         """
-
         event_template_dict = event_object.to_dict()
-        new_event_template_dict = BaseService(Event).remove_attributes_from_object(event_template_dict, "ID")
-        urwid.connect_signal(
-            buttons[0],
-            "click",
-            lambda button: self.pre_filled_form_page(
-                f"> Home > Client > {event_object.id} > Modify",
-                new_event_template_dict,
-                event_object,
-                ContractService(),
+
+        new_event_template_dict = BaseService(Event).remove_attributes_from_object(event_template_dict, ["ID", "Client ID", "Contract ID"])
+
+        button_actions = [
+            (
+                "Modify",
+                lambda: self.pre_filled_form_page(
+                    f"> Home > Client > {event_object.id} > Modify",
+                    new_event_template_dict,
+                    event_object,
+                    EventService(),
+                ),
             ),
-        )
-        urwid.connect_signal(
-            buttons[1],
-            "click",
-            lambda button: self.show_delete_confirmation(event_object, BaseService(Event)),
-        )
+            ("Delete", lambda: self.show_delete_confirmation(event_object, BaseService(Event))),
+        ]
+
+        self.connect_button_signals(buttons, button_actions)
