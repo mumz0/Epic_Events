@@ -122,10 +122,13 @@ class EventController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if self.current_user.role.name in ["management", "support"]:
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = ["Modify", "Delete"]
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_update" and (
+                    self.current_user.role.name != "support" or selected_event.support_user_id == self.current_user.email_address
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "event_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,
@@ -171,10 +174,13 @@ class EventController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if self.current_user.role.name in ["management", "support"]:
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = ["Modify", "Delete"]
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_update" and (
+                    self.current_user.role.name != "support" or selected_event.support_user_id == self.current_user.email_address
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "event_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,
@@ -208,7 +214,6 @@ class EventController(BaseController):
         """
         for button in buttons["buttons_items"]:
             selected_event = self.select_item_in_lst(event_objects, button.get_label())
-
             object_details_data = {
                 "title": f"Home > Events > {button.get_label()}",
                 "item_identifier": button.get_label(),
@@ -216,10 +221,13 @@ class EventController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if self.current_user.role.name in ["management", "support"]:
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = ["Modify", "Delete"]
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_update" and (
+                    self.current_user.role.name != "support" or selected_event.support_user_id == self.current_user.email_address
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "event_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,
@@ -242,30 +250,32 @@ class EventController(BaseController):
         """
         Define the page buttons needed based on the filter type.
 
-        :param contracts_label: The label for the contracts.
-        :type contracts_label: str
-        :param filter: The filter type to determine which buttons to display.
-                       Possible values are "all", "client", and "current_user".
-        :type filter: str
+        :param event_label: The label for the events.
+        :type event_label: str
+        :param filter_type: The filter type to determine which buttons to display.
+                            Possible values are "all", "client", "current_user", and "no support".
+        :type filter_type: str
         :return: A dictionary with the users label and the list of buttons, or None if the filter is not recognized.
         :rtype: dict or None
         """
+        buttons = ["Previous", "Next"]
+        _dict = {"users_label": event_label, "buttons": buttons}
+
         if filter_type == "all":
-            _dict = {"users_label": event_label, "buttons": ["Previous", "Next"]}
             if self.current_user.role.name in ["admin", "management"]:
-                _dict["buttons"].append("No support")
-            elif self.current_user.role.name == ["admin", "support", "sales"]:
-                _dict["buttons"].append("My events")
+                buttons.append("No support")
+            if self.current_user.role.name in ["admin", "support", "sales"]:
+                buttons.append("My events")
             return _dict
 
         if filter_type == "client":
-            _dict = {"users_label": event_label, "buttons": ["Previous", "Next"]}
-            if self.current_user.role.name in ["admin", "sales"]:
-                _dict["buttons"].append("Create")
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_create":
+                    buttons.append("Create")
             return _dict
 
         if filter_type in {"current_user", "no support"}:
-            return {"users_label": event_label, "buttons": ["Previous", "Next"]}
+            return _dict
 
         return None
 

@@ -2,7 +2,7 @@
 Ce module définit la classe RolePermission qui représente l'association entre les rôles et les permissions dans la base de données.
 """
 
-from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy import Column, ForeignKey, Integer, String
 
 from src.models.base import Base
 
@@ -23,4 +23,4 @@ class RolePermission(Base):
 
     id = Column(Integer, primary_key=True)
     role = Column("role_name", Integer, ForeignKey("role.name"))
-    permission = Column("permission_id", Integer, ForeignKey("permission.id"))
+    permission = Column("permission_id", String, ForeignKey("permission.action"))

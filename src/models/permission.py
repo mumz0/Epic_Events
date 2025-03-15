@@ -2,7 +2,7 @@
 Ce module définit la classe Permission qui représente une permission dans la base de données.
 """
 
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, String
 
 from src.models.base import Base
 
@@ -21,6 +21,5 @@ class Permission(Base):
 
     __tablename__ = "permission"
 
-    id = Column(Integer, primary_key=True)
-    action = Column(String, nullable=False)  # create, read, update, delete
-    entity = Column(String, nullable=False)  # client, contract, evenement
+    # id = Column(Integer, primary_key=True)
+    action = Column(String, primary_key=True, nullable=False)

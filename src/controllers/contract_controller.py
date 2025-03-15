@@ -73,12 +73,8 @@ class ContractController(BaseController):
             sentry_sdk.capture_message(f"contract_objects: {contract_objects}")
         elif filter_type == "current_user":
             contract_objects = ContractService().filter_by_sales_email_adress(self.current_user.email_address, self.session)
-        elif filter_type == "signed":
-            contract_objects = ContractService().filtered_by_contract_signed_or_pending(self.session, "Signed")
         elif filter_type == "not signed":
             contract_objects = ContractService().filtered_by_contract_signed_or_pending(self.session, "Pending")
-        elif filter_type == "payed":
-            contract_objects = ContractService().filtered_by_contract_payed_or_not(self.session, True)
         elif filter_type == "not payed":
             contract_objects = ContractService().filtered_by_contract_payed_or_not(self.session, False)
         else:
@@ -132,13 +128,14 @@ class ContractController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_update" and (
+                    self.current_user.role.name != "support" or selected_contract.support_user_id == self.current_user.email_address
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "event_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
-            if selected_contract.sales_contact_id == self.current_user.email_address:
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "management":
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = ["Modify", "Delete"]
             urwid.connect_signal(
                 button,
                 "click",
@@ -182,12 +179,13 @@ class ContractController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if selected_contract.sales_contact_id == self.current_user.email_address:
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "management":
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = ["Modify", "Delete"]
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_update" and (
+                    self.current_user.role.name != "support" or selected_contract.support_user_id == self.current_user.email_address
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "event_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,
@@ -228,12 +226,13 @@ class ContractController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if selected_contract.sales_contact_id == self.current_user.email_address:
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "management":
-                object_details_data["buttons_label"] = ["Modify"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = ["Modify", "Delete"]
+            for permission in self.current_user.role.permissions:
+                if permission.action == "event_update" and (
+                    self.current_user.role.name != "support" or selected_contract.support_user_id == self.current_user.email_address
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "event_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,
@@ -247,9 +246,7 @@ class ContractController(BaseController):
             ("Previous", paginated_view.previous_page()),
             ("Next", paginated_view.next_page()),
             ("My contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > My contracts", "current_user")),
-            ("Signed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Signed contracts", "signed")),
             ("Not signed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Not signed contracts", "not signed")),
-            ("Payed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Payed contracts", "payed")),
             ("Not payed contracts", lambda: self.paginated_contracts_displayed("> Home > Contracts > Not payed contracts", "not payed")),
         ]
 
@@ -267,28 +264,24 @@ class ContractController(BaseController):
         :return: A dictionary with the users label and the list of buttons, or None if the filter is not recognized.
         :rtype: dict or None
         """
+        buttons = ["Previous", "Next"]
+        _dict = {"users_label": contracts_label, "buttons": buttons}
+
         if filter_type == "all":
-            _dict = {
-                "users_label": contracts_label,
-                "buttons": ["Previous", "Next"],
-            }
             if self.current_user.role.name in ["admin", "sales", "management"]:
-                _dict["buttons"].append("My contracts")
-            elif self.current_user.role.name in ["admin", "sales"]:
-                _dict["buttons"].append("Signed contracts")
-                _dict["buttons"].append("Not signed contracts")
-                _dict["buttons"].append("Payed contracts")
-                _dict["buttons"].append("Not payed contracts")
+                buttons.append("My contracts")
+            if self.current_user.role.name in ["admin", "sales"]:
+                buttons.extend(["Not signed contracts", "Not payed contracts"])
             return _dict
 
         if filter_type == "client":
-            _dict = {"users_label": contracts_label, "buttons": ["Previous", "Next"]}
-            if self.current_user.role.name in ["admin", "sales", "management"]:
-                _dict["buttons"].append("Create")
+            for permission in self.current_user.role.permissions:
+                if permission.action == "contract_create":
+                    buttons.append("Create")
             return _dict
 
-        if filter_type in {"current_user", "signed", "not signed", "payed", "not payed"}:
-            return {"users_label": contracts_label, "buttons": ["Previous", "Next"]}
+        if filter_type in {"current_user", "not signed", "not payed"}:
+            return _dict
 
         return None
 

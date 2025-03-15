@@ -49,8 +49,10 @@ class UserController(BaseController):
             "users_label": users_label,
             "buttons": ["Previous", "Next"],
         }
-        if self.current_user.role.name in ["admin", "management"]:
-            buttons_label["buttons"].append("Create")
+        for permission in self.current_user.role.permissions:
+            if permission.action == "user_create":
+                buttons_label["buttons"].append("Create")
+
         layout, buttons = paginated_view.display_page(0, buttons_label)
 
         self.create_paginated_buttons_signal(paginated_view, buttons, user_objects)
@@ -79,9 +81,11 @@ class UserController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if self.current_user.role.name in ["admin", "management"]:
-                object_details_data["buttons_label"].append("Modify")
-                object_details_data["buttons_label"].append("Delete")
+            for permission in self.current_user.role.permissions:
+                if permission.action == "user_update":
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "user_delete":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,

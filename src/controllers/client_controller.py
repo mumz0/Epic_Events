@@ -52,8 +52,10 @@ class ClientController(BaseController):
             "users_label": clients_label,
             "buttons": ["Previous", "Next"],
         }
-        if self.current_user.role.name in ["admin", "sales"]:
-            buttons_label["buttons"].append("Create")
+        for permission in self.current_user.permissions:
+            if permission.action == "client_create":
+                buttons_label["buttons"].append("Create")
+
         layout, buttons = paginated_view.display_page(0, buttons_label)
 
         self.create_paginated_buttons_signal(paginated_view, buttons, client_objects)
@@ -81,22 +83,18 @@ class ClientController(BaseController):
                 "service": self,
                 "buttons_label": [],
             }
-            if selected_client.sales_contact_id == self.current_user.email_address and self.current_user.role.name != "admin":
-                object_details_data["buttons_label"] = ["Modify", "Contracts", "Events"]
-            elif (
-                self.current_user.role.name == "management"
-                or self.current_user.role.name == "sales"
-                and selected_client.sales_contact_id != self.current_user.email_address
-                or self.current_user.role.name == "support"
-            ):
-                object_details_data["buttons_label"] = ["Contracts", "Events"]
-            elif self.current_user.role.name == "admin":
-                object_details_data["buttons_label"] = [
-                    "Modify",
-                    "Delete",
-                    "Contracts",
-                    "Events",
-                ]
+            for permission in self.current_user.role.permissions:
+                if (
+                    permission.action == "client_update"
+                    and selected_client.sales_contact_id == self.current_user.email_address
+                    or self.current_user.role.name == "admin"
+                ):
+                    object_details_data["buttons_label"].append("Modify")
+                if permission.action == "client_read":
+                    object_details_data["buttons_label"].append("Contracts")
+                    object_details_data["buttons_label"].append("Events")
+                if self.current_user.role.name == "admin":
+                    object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
                 button,
