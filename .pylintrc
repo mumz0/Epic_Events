@@ -3,4 +3,4 @@ max-line-length=150
 max-args=6
 
 [MESSAGES CONTROL]
-disable=W0511, C0413, E0401, R0903, R0917, R0801
+disable=W0511, C0413, E0401, R0903, R0917, R0801, W0108

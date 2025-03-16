@@ -197,7 +197,6 @@ class BaseController:
         """
         layout_dict = self.base_view.create_pre_filled_form_page(object_template, title)
         urwid.connect_signal(layout_dict["buttons"], "click", lambda button: self.handle_save_button(layout_dict["edits"], obj, service))
-        # self.history.append(layout_dict["layout"])
         self.base_view.update_screen(layout_dict["layout"])
 
     def handle_save_button(self, edit_labels, obj, service):
@@ -265,13 +264,24 @@ class BaseController:
         """
         Connect signals to buttons based on the provided actions.
 
-        :param buttons: A dictionary containing button items and other navigation buttons.
-        :type buttons: dict
+        :param buttons: A dictionary or list containing button items and other navigation buttons.
+        :type buttons: dict or list
         :param button_actions: A list of tuples containing button labels and their corresponding actions.
         :type button_actions: list
         """
+        if isinstance(buttons, dict):
+            button_list = buttons.get("other_buttons", [])
+        elif isinstance(buttons, list):
+            button_list = buttons
+        else:
+            raise TypeError("buttons must be a dictionary or a list")
+
         for button_key, action in button_actions:
-            for button in buttons["other_buttons"]:
+            for button in button_list:
                 if button_key == button.get_label():
-                    urwid.connect_signal(button, "click", lambda button, action=action: action())
+                    if action is not None:
+                        if action.__code__.co_argcount == 0:
+                            urwid.connect_signal(button, "click", lambda button=button, action=action: action())
+                        else:
+                            urwid.connect_signal(button, "click", lambda button=button, action=action: action(button))
                     break

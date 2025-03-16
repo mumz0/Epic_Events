@@ -56,6 +56,7 @@ class RoleController:
             "contract_update",
             "event_read",
             "event_update",
+            "client_read",
         ]
         management_permission_obj_lst = []
         for permission in permission_obj_lst:
@@ -88,7 +89,6 @@ class RoleController:
             "client_update",
             "client_read",
             "contract_read",
-            "contract_create",
             "contract_update",
             "event_create",
             "event_read",

@@ -95,7 +95,11 @@ class UserController(BaseController):
                 ),
             )
 
-        button_actions = [("Previous", paginated_view.previous_page()), ("Next", paginated_view.next_page()), ("Create", self.user_creation())]
+        button_actions = [
+            ("Previous", paginated_view.previous_page()),
+            ("Next", paginated_view.next_page()),
+            ("Create", lambda: self.user_creation()),
+        ]
 
         self.connect_button_signals(buttons, button_actions)
 

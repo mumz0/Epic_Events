@@ -71,7 +71,6 @@ class PaginatedView(BaseView):
             buttons.append(button)
             body.append(button)
 
-        # TODO: Add permission condition
         buttons = {"buttons_items": buttons_items, "other_buttons": buttons}
         list_box = urwid.ListBox(urwid.SimpleFocusListWalker(body))
         framed_layout = urwid.Frame(urwid.Padding(list_box, left=2, right=2))

@@ -129,11 +129,11 @@ class ContractController(BaseController):
                 "buttons_label": [],
             }
             for permission in self.current_user.role.permissions:
-                if permission.action == "event_update" and (
-                    self.current_user.role.name != "support" or selected_contract.support_user_id == self.current_user.email_address
+                if permission.action == "contract_update" and (
+                    self.current_user.role.name != "sales" or selected_contract.sales_contact_id == self.current_user.email_address
                 ):
                     object_details_data["buttons_label"].append("Modify")
-                if permission.action == "event_delete":
+                if permission.action == "contract_delete":
                     object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(
@@ -150,8 +150,10 @@ class ContractController(BaseController):
         button_actions = [
             ("Previous", paginated_view.previous_page()),
             ("Next", paginated_view.next_page()),
-            ("Create", lambda button: self.create_client_contracts(client_email_address)),
         ]
+        for permission in self.current_user.role.permissions:
+            if permission.action == "contract_create":
+                button_actions.append(("Create", lambda: self.create_client_contracts(client_email_address)))
 
         self.connect_button_signals(buttons, button_actions)
 
@@ -227,11 +229,11 @@ class ContractController(BaseController):
                 "buttons_label": [],
             }
             for permission in self.current_user.role.permissions:
-                if permission.action == "event_update" and (
-                    self.current_user.role.name != "support" or selected_contract.support_user_id == self.current_user.email_address
+                if permission.action == "contract_update" and (
+                    self.current_user.role.name != "sales" or selected_contract.sales_contact_id == self.current_user.email_address
                 ):
                     object_details_data["buttons_label"].append("Modify")
-                if permission.action == "event_delete":
+                if permission.action == "contract_delete":
                     object_details_data["buttons_label"].append("Delete")
 
             urwid.connect_signal(

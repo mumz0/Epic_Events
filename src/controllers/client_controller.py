@@ -52,7 +52,7 @@ class ClientController(BaseController):
             "users_label": clients_label,
             "buttons": ["Previous", "Next"],
         }
-        for permission in self.current_user.permissions:
+        for permission in self.current_user.role.permissions:
             if permission.action == "client_create":
                 buttons_label["buttons"].append("Create")
 
@@ -107,8 +107,11 @@ class ClientController(BaseController):
         button_actions = [
             ("Previous", paginated_view.previous_page()),
             ("Next", paginated_view.next_page()),
-            ("Create", self.client_creation()),
         ]
+
+        for permission in self.current_user.role.permissions:
+            if permission.action == "client_create":
+                button_actions.append(("Create", lambda: self.client_creation()))
 
         self.connect_button_signals(buttons, button_actions)
 

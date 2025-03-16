@@ -67,7 +67,7 @@ class EventController(BaseController):
         elif filter_type == "client":
             event_objects = EventService().filter_by_email_adress(email_address, self.session)
         elif filter_type == "current_user":
-            event_objects = EventService().filter_by_sales_email_adress(self.current_user.email_address, self.session)
+            event_objects = EventService().filter_by_support_email_adress(self.current_user.email_address, self.session)
         elif filter_type == "no support":
             event_objects = EventService().filter_by_support_user_on_event(self.session, False)
         else:
@@ -90,7 +90,7 @@ class EventController(BaseController):
         :type client_email_address: str
         """
         if filter_type == "all":
-            self.create_all_contracts_paginated_buttons_signal(paginated_view, buttons, event_objects)
+            self.create_all_events_paginated_buttons_signal(paginated_view, buttons, event_objects)
         if filter_type == "client":
             self.create_client_events_paginated_buttons_signal(paginated_view, buttons, event_objects, client_email_address)
         if filter_type in {"current_user", "no support"}:
@@ -146,6 +146,9 @@ class EventController(BaseController):
             ("Next", paginated_view.next_page()),
             ("Create", lambda: self.create_client_event(client_email_address)),
         ]
+        for permission in self.current_user.role.permissions:
+            if permission.action == "event_create":
+                button_actions.append(("Create", lambda: self.create_client_event(client_email_address)))
 
         self.connect_button_signals(buttons, button_actions)
 
@@ -197,7 +200,7 @@ class EventController(BaseController):
 
         self.connect_button_signals(buttons, button_actions)
 
-    def create_all_contracts_paginated_buttons_signal(self, paginated_view, buttons, event_objects):
+    def create_all_events_paginated_buttons_signal(self, paginated_view, buttons, event_objects):
         """
         Connects signals to buttons for paginated contract views.
 
@@ -264,7 +267,7 @@ class EventController(BaseController):
         if filter_type == "all":
             if self.current_user.role.name in ["admin", "management"]:
                 buttons.append("No support")
-            if self.current_user.role.name in ["admin", "support", "sales"]:
+            if self.current_user.role.name in ["admin", "support"]:
                 buttons.append("My events")
             return _dict
 
@@ -373,6 +376,10 @@ class EventController(BaseController):
         :param event_object: The event object for which the details view buttons are created.
         :type event_object: Event
         """
+        new_start_date = BaseService.datetime_to_string(event_object.start_date)
+        new_end_date = BaseService.datetime_to_string(event_object.end_date)
+        event_object.start_date = new_start_date
+        event_object.end_date = new_end_date
         event_template_dict = event_object.to_dict()
 
         new_event_template_dict = BaseService(Event).remove_attributes_from_object(event_template_dict, ["ID", "Client ID", "Contract ID"])

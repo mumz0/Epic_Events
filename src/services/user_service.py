@@ -86,3 +86,22 @@ class UserService(BaseService):
             error_message = f"Error preparing data and updating user: {str(e)}"
             sentry_sdk.capture_exception(e)
             raise ValueError(error_message) from (e)
+
+    def list_to_dict(self, user_list):
+        """
+        Converts a list of User objects to a dictionary.
+
+        :param user_list: A list of User objects.
+        :type user_list: list
+        :return: A dictionary of User objects.
+        :rtype: dict
+        """
+        user_dict = {}
+        for client in user_list:
+            user_dict[client.id] = client.to_dict()
+        return user_dict
+
+    def get_by_email(self, email, session):
+        """Retrieve a user by email address."""
+        user = self.repository.find_by_email(email, session)
+        return user
