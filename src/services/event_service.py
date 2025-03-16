@@ -41,7 +41,7 @@ class EventService(BaseService):
             user_dict["ID"] = contract.id
         return user_dict
 
-    def filter_by_sales_email_adress(self, email: str, session) -> list:
+    def filter_by_support_email_adress(self, email: str, session) -> list:
         """
         Filter contracts by sales email address.
 
@@ -52,7 +52,7 @@ class EventService(BaseService):
         :return: A list of contracts.
         :rtype: list
         """
-        return self.repository.filter_by_sales_email_address(email, session)
+        return self.repository.filter_by_support_email_address(email, session)
 
     def filter_by_email_adress(self, email: str, session) -> list:
         """
@@ -124,8 +124,8 @@ class EventService(BaseService):
         :return: The data to update the user.
         :rtype: dict
         """
-        datetime_start_date = EventService().string_date_to_datetime(data["Start Date"])
-        datetime_end_date = EventService().string_date_to_datetime(data["End Date"])
+        datetime_start_date = self.string_date_to_datetime(data["Start Date"])
+        datetime_end_date = self.string_date_to_datetime(data["End Date"])
         data = {
             "name": data["Name"],
             "start_date": datetime_start_date,

@@ -46,17 +46,24 @@ class RoleController:
         :param session_obj: The database session object.
         :type session_obj: Session
         """
-        management_permission_lst = []
+        management_permission_lst = [
+            "user_create",
+            "user_read",
+            "user_update",
+            "user_delete",
+            "contract_create",
+            "contract_read",
+            "contract_update",
+            "event_read",
+            "event_update",
+            "client_read",
+        ]
+        management_permission_obj_lst = []
         for permission in permission_obj_lst:
-            is_read_action = permission.action == "read"
-            is_user_entity = permission.entity == "user"
-            is_create_contract = permission.action == "create" and permission.entity == "contract"
-            is_modify_contract = permission.action == "modify" and permission.entity == "contract"
+            if permission.action in management_permission_lst:
+                management_permission_obj_lst.append(permission)
 
-            if is_read_action or is_user_entity or is_create_contract or is_modify_contract:
-                management_permission_lst.append(permission)
-
-        management_role_data = {"name": RoleEnum.MANAGEMENT.value, "permissions": management_permission_lst}
+        management_role_data = {"name": RoleEnum.MANAGEMENT.value, "permissions": management_permission_obj_lst}
         RoleService().create(management_role_data, session_obj)
 
     def create_sales_role(self, permission_obj_lst, session_obj):
@@ -76,18 +83,22 @@ class RoleController:
         :param session_obj: The session object used to interact with the database.
         :type session_obj: Session
         """
-        sales_permission_lst = []
+        sales_permission_lst = [
+            "user_read",
+            "client_create",
+            "client_update",
+            "client_read",
+            "contract_read",
+            "contract_update",
+            "event_create",
+            "event_read",
+        ]
+        sales_permission_obj_lst = []
         for permission in permission_obj_lst:
-            is_read_action = permission.action == "read"
-            is_create_client = permission.action == "create" and permission.entity == "client"
-            is_modify_client = permission.action == "modify" and permission.entity == "client"
-            is_create_event = permission.action == "create" and permission.entity == "event"
-            is_modify_contract = permission.action == "modify" and permission.entity == "contract"
+            if permission.action in sales_permission_lst:
+                sales_permission_obj_lst.append(permission)
 
-            if is_read_action or is_create_client or is_modify_client or is_create_event or is_modify_contract:
-                sales_permission_lst.append(permission)
-
-        sales_role_data = {"name": RoleEnum.SALES.value, "permissions": sales_permission_lst}
+        sales_role_data = {"name": RoleEnum.SALES.value, "permissions": sales_permission_obj_lst}
         RoleService().create(sales_role_data, session_obj)
 
     def create_support_role(self, permission_obj_lst, session_obj):
@@ -101,10 +112,17 @@ class RoleController:
         :param session_obj: The session object used for database transactions.
         :type session_obj: Session
         """
-        support_permissions_lst = []
+        support_permissions_lst = [
+            "user_read",
+            "event_read",
+            "event_update",
+            "contract_read",
+            "client_read",
+        ]
+        support_permission_obj_lst = []
         for permission in permission_obj_lst:
-            if (permission.action == "read") or (permission.action == "modify" and permission.entity == "event"):
-                support_permissions_lst.append(permission)
+            if permission.action in support_permissions_lst:
+                support_permission_obj_lst.append(permission)
 
-        support_role_data = {"name": RoleEnum.SUPPORT.value, "permissions": support_permissions_lst}
+        support_role_data = {"name": RoleEnum.SUPPORT.value, "permissions": support_permission_obj_lst}
         RoleService().create(support_role_data, session_obj)
