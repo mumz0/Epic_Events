@@ -17,6 +17,7 @@ class Engine:
 
     def __init__(self):
         """Initializes the Engine with the database path and creates the engine."""
+        os.makedirs("_persistent", exist_ok=True)
         self.database_path = os.path.join("_persistent", "database.db")
         self.engine = create_engine(f"sqlite:///{self.database_path}")
         self.session_factory = sessionmaker(bind=self.engine)

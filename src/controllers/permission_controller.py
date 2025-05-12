@@ -14,9 +14,27 @@ class PermissionController:
         """
         Create permissions in the database.
         """
-        permission_data_lst = []
-        for permission in os.getenv("PERMISSIONS").split(","):
+        permission_instances = []
+        permission_lst = [
+            "user_create",
+            "user_read",
+            "user_update",
+            "user_delete",
+            "client_create",
+            "client_read",
+            "client_update",
+            "client_delete",
+            "contract_create",
+            "contract_read",
+            "contract_update",
+            "contract_delete",
+            "event_create",
+            "event_read",
+            "event_update",
+            "event_delete",
+        ]
+        for permission in permission_lst:
             permission_data = {"action": permission}
             permission_obj = PermissionService().create_instance(permission_data)
-            permission_data_lst.append(permission_obj)
-        return permission_data_lst
+            permission_instances.append(permission_obj)
+        return permission_instances
