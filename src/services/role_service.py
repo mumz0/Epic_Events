@@ -1,5 +1,7 @@
 """This file defines the RoleService class for handling operations related to Role entities."""
 
+import sentry_sdk
+
 from src.models.role import Role
 from src.repositories.role_repository import RoleRepository
 from src.services.base_service import BaseService
@@ -30,7 +32,12 @@ class RoleService(BaseService):
         :return: A list of all Role entities.
         :rtype: list
         """
-        return self.repository.get_all(session)
+        try:
+            return self.repository.get_all(session)
+        except Exception as e:
+            sentry_sdk.capture_message("Error retrieving all roles")
+            sentry_sdk.capture_exception(e)
+            return []
 
     def get_by_name(self, name, session):
         """
@@ -41,4 +48,9 @@ class RoleService(BaseService):
         :return: The Role entity with the specified name.
         :rtype: Role
         """
-        return self.repository.get_by_name(name, session)
+        try:
+            return self.repository.get_by_name(name, session)
+        except Exception as e:
+            sentry_sdk.capture_message("Error retrieving role by name")
+            sentry_sdk.capture_exception(e)
+            return None

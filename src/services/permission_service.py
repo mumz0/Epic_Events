@@ -1,5 +1,7 @@
 """This file defines the PermissionService class for handling operations related to Permission entities."""
 
+import sentry_sdk
+
 from src.models.permission import Permission
 from src.repositories.permission_repository import PermissionRepository
 from src.services.base_service import BaseService
@@ -34,4 +36,9 @@ class PermissionService(BaseService):
         :return: A list of permissions associated with the given role.
         :rtype: list
         """
-        return self.repository.get_permissions_by_role(user_role_name, session)
+        try:
+            return self.repository.get_permissions_by_role(user_role_name, session)
+        except Exception as e:
+            sentry_sdk.capture_message("Error retrieving permissions for role")
+            sentry_sdk.capture_exception(e)
+            return []

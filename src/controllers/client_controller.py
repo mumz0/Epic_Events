@@ -81,7 +81,7 @@ class ClientController(BaseController):
                 "item_identifier": button.get_label(),
                 "obj_lst": selected_client,
                 "service": self,
-                "buttons_label": [],
+                "buttons_label": set(),
             }
             for permission in self.current_user.role.permissions:
                 if (
@@ -89,12 +89,14 @@ class ClientController(BaseController):
                     and selected_client.sales_contact_id == self.current_user.email_address
                     or self.current_user.role.name == "admin"
                 ):
-                    object_details_data["buttons_label"].append("Modify")
+                    object_details_data["buttons_label"].add("Modify")
                 if permission.action == "client_read":
-                    object_details_data["buttons_label"].append("Contracts")
-                    object_details_data["buttons_label"].append("Events")
+                    object_details_data["buttons_label"].add("Contracts")
+                    object_details_data["buttons_label"].add("Events")
                 if self.current_user.role.name == "admin":
-                    object_details_data["buttons_label"].append("Delete")
+                    object_details_data["buttons_label"].add("Delete")
+
+            object_details_data["buttons_label"] = list(object_details_data["buttons_label"])
 
             urwid.connect_signal(
                 button,

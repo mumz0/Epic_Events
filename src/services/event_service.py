@@ -4,8 +4,10 @@ import string
 import uuid
 from datetime import datetime
 
+import sentry_sdk
+
 from src.models.event import Event
-from src.repositories.event_reposiroty import EventRepository
+from src.repositories.event_repository import EventRepository
 from src.services.base_service import BaseService
 
 
@@ -31,41 +33,56 @@ class EventService(BaseService):
         """
         Converts a list of event objects to a dictionary.
 
-        :param user_list: A list of Event objects.
-        :type user_list: list
+        :param event_list: A list of Event objects.
+        :type event_list: list
         :return: A dictionary of Event objects.
         :rtype: dict
         """
-        user_dict = {}
-        for contract in event_list:
-            user_dict["ID"] = contract.id
-        return user_dict
+        try:
+            event_dict = {}
+            for event in event_list:
+                event_dict["ID"] = event.id
+            return event_dict
+        except Exception as e:
+            sentry_sdk.capture_message("Error converting event list to dictionary")
+            sentry_sdk.capture_exception(e)
+            return {}
 
     def filter_by_support_email_adress(self, email: str, session) -> list:
         """
-        Filter contracts by sales email address.
+        Filter events by support email address.
 
-        :param email: The sales email address.
+        :param email: The support email address.
         :type email: str
         :param session: The SQLAlchemy session.
         :type session: Session
-        :return: A list of contracts.
+        :return: A list of events.
         :rtype: list
         """
-        return self.repository.filter_by_support_email_address(email, session)
+        try:
+            return self.repository.filter_by_support_email_address(email, session)
+        except Exception as e:
+            sentry_sdk.capture_message("Error filtering events by support email address")
+            sentry_sdk.capture_exception(e)
+            return []
 
     def filter_by_email_adress(self, email: str, session) -> list:
         """
-        Filter contracts by email address.
+        Filter events by email address.
 
         :param email: The email address.
         :type email: str
         :param session: The SQLAlchemy session.
         :type session: Session
-        :return: A list of contracts.
+        :return: A list of events.
         :rtype: list
         """
-        return self.repository.filter_by_client_email_address(email, session)
+        try:
+            return self.repository.filter_by_client_email_address(email, session)
+        except Exception as e:
+            sentry_sdk.capture_message("Error filtering events by email address")
+            sentry_sdk.capture_exception(e)
+            return []
 
     def string_date_to_datetime(self, date_string):
         """
@@ -76,8 +93,13 @@ class EventService(BaseService):
         :return: Corresponding datetime object.
         :rtype: datetime.datetime
         """
-        date_object = datetime.strptime(date_string, "%Y/%m/%d")
-        return date_object
+        try:
+            date_object = datetime.strptime(date_string, "%Y/%m/%d")
+            return date_object
+        except Exception as e:
+            sentry_sdk.capture_message("Error converting date string to datetime")
+            sentry_sdk.capture_exception(e)
+            return None
 
     @staticmethod
     def generate_uid(session, length=8):
@@ -95,12 +117,17 @@ class EventService(BaseService):
         :return: A unique event identifier with the specified length and "EVENT" prefix.
         :rtype: str
         """
-        while True:
-            uid = uuid.uuid4().hex.upper()
-            uid = "".join(filter(lambda x: x in string.ascii_uppercase + string.digits, uid))
-            uid_with_prefix = f"EVENT{uid[:length]}"
-            if not session.query(Event).filter(Event.id == uid_with_prefix).first():
-                return uid_with_prefix
+        try:
+            while True:
+                uid = uuid.uuid4().hex.upper()
+                uid = "".join(filter(lambda x: x in string.ascii_uppercase + string.digits, uid))
+                uid_with_prefix = f"EVENT{uid[:length]}"
+                if not session.query(Event).filter(Event.id == uid_with_prefix).first():
+                    return uid_with_prefix
+        except Exception as e:
+            sentry_sdk.capture_message("Error generating UID")
+            sentry_sdk.capture_exception(e)
+            return None
 
     def filter_by_support_user_on_event(self, session, is_support: bool) -> list:
         """
@@ -108,31 +135,37 @@ class EventService(BaseService):
 
         :param session: The SQLAlchemy session.
         :type session: Session
-        :param True: The support user on event.
-        :type True: bool
+        :param is_support: The support user on event.
+        :type is_support: bool
         :return: A list of events.
         :rtype: list
         """
-        return self.repository.filter_by_support_user_on_event(session, is_support)
+        try:
+            return self.repository.filter_by_support_user_on_event(session, is_support)
+        except Exception as e:
+            sentry_sdk.capture_message("Error filtering events by support user")
+            sentry_sdk.capture_exception(e)
+            return []
 
-    def prepare_data_and_update(self, data, obj, session) -> dict:
+    def prepare_data_and_update(self, data, obj, session):
         """
-        Create the data to update the user.
+        Prepare event data and update the event object in the database.
 
-        :param data: The data to update the user.
+        :param data: The event data.
         :type data: dict
-        :return: The data to update the user.
+        :param obj: The event object to update.
+        :type obj: Event
+        :param session: The SQLAlchemy session.
+        :type session: Session
+        :return: The updated event data.
         :rtype: dict
         """
-        datetime_start_date = self.string_date_to_datetime(data["Start Date"])
-        datetime_end_date = self.string_date_to_datetime(data["End Date"])
-        data = {
-            "name": data["Name"],
-            "start_date": datetime_start_date,
-            "end_date": datetime_end_date,
-            "location": data["Location"],
-            "attendees": data["Attendees"],
-            "notes": data["Notes"],
-            "support_user_id": data["Support User ID"],
-        }
-        return self.repository.update_obj(obj.id, data, session)
+        try:
+            if "Start Date" in data:
+                data["start_date"] = datetime.strptime(data["Start Date"], "%Y/%m/%d")
+            if "End Date" in data:
+                data["end_date"] = datetime.strptime(data["End Date"], "%Y/%m/%d")
+            return self.repository.update_obj(data, obj, session)
+        except Exception as e:
+            sentry_sdk.capture_exception(e)
+            return {}

@@ -24,18 +24,16 @@ class AuthController(BaseController):
         super().__init__(session, base_view, current_user, history)
         self.current_user = current_user
 
-    @staticmethod
-    def create_admin_user(session):
+    def create_admin_user(self):
         """
         Creates an admin user with a predefined password and admin role.
-
-        :param session_obj: The database session object.
-        :type session_obj: Session
         """
-        admin_role_obj = session.query(Role).filter_by(name=RoleEnum.ADMIN.value).first()
-
+        query = self.session.query(Role).filter_by(name=RoleEnum.ADMIN.value)
+        admin_role_obj = query.first()
+        if not admin_role_obj:
+            raise ValueError("Admin role not found.")
         email, password = BaseView().admin_signup_view()
-        AuthService(None).signup_process(email, password, admin_role_obj.name, session)
+        AuthService(None).signup_process(email, password, admin_role_obj.name, self.session)
 
     # def signup(self):
     #     """Handles the signup process for a new user."""

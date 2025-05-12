@@ -1,6 +1,6 @@
-"""
-This module defines the BaseService class which provides basic services for interacting with database models.
-"""
+"""This module defines the BaseService class which provides basic services for interacting with database models."""
+
+import sentry_sdk
 
 from src.repositories.base_repository import BaseRepository
 from src.repositories.permission_repository import PermissionRepository
@@ -43,8 +43,13 @@ class BaseService:
         :return: The persisted instance of the model.
         :rtype: object
         """
-        instance = self.model(**data)
-        return self.repository.add(instance, session)
+        try:
+            instance = self.model(**data)
+            return self.repository.add(instance, session)
+        except Exception as e:
+            error_message = "Error creating instance"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e
 
     def create_all(self, data_list, session):
         """
@@ -57,8 +62,13 @@ class BaseService:
         :return: A list of persisted instances of the model.
         :rtype: list
         """
-        instances = [self.model(**data) for data in data_list]
-        return self.repository.add_all(instances, session)
+        try:
+            instances = [self.model(**data) for data in data_list]
+            return self.repository.add_all(instances, session)
+        except Exception as e:
+            error_message = "Error creating instances"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from e
 
     def get(self, instance_id, session):
         """
@@ -71,7 +81,13 @@ class BaseService:
         :return: The instance of the model if found, otherwise None.
         :rtype: object or None
         """
-        return self.repository.get(instance_id, session)
+        try:
+            return self.repository.get(instance_id, session)
+        except Exception as e:
+            error_message = "Error retrieving instance"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def get_id(self, instance_name, session):
         """
@@ -84,7 +100,13 @@ class BaseService:
         :return: The instance of the model if found, otherwise None.
         :rtype: object or None
         """
-        return self.repository.get_id(instance_name, session)
+        try:
+            return self.repository.get_id(instance_name, session)
+        except Exception as e:
+            error_message = "Error retrieving instance"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def get_all(self, session):
         """
@@ -95,9 +117,14 @@ class BaseService:
         :return: A list of all instances of the model.
         :rtype: list
         """
-        if isinstance(self.repository, (RoleRepository, PermissionRepository)):
-            raise PermissionError("Access to this method is not allowed.")
-        return self.repository.get_all(session)
+        try:
+            if isinstance(self.repository, (RoleRepository, PermissionRepository)):
+                raise PermissionError("Access to this method is not allowed.")
+            return self.repository.get_all(session)
+        except Exception as e:
+            sentry_sdk.capture_message("Error retrieving all instances")
+            sentry_sdk.capture_exception(e)
+            return []
 
     def update(self, instance_id, data, session):
         """
@@ -112,7 +139,13 @@ class BaseService:
         :return: The updated instance of the model.
         :rtype: object
         """
-        return self.repository.update_obj(instance_id, data, session)
+        try:
+            return self.repository.update_obj(instance_id, data, session)
+        except Exception as e:
+            error_message = "Error updating instance"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def delete(self, instance_id, session):
         """
@@ -125,7 +158,13 @@ class BaseService:
         :return: The deleted instance of the model.
         :rtype: object
         """
-        return self.repository.delete(instance_id, session)
+        try:
+            return self.repository.delete(instance_id, session)
+        except Exception as e:
+            error_message = "Error deleting instance"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def remove_attributes_from_object(self, object_template, attributes_to_remove):
         """
@@ -138,9 +177,15 @@ class BaseService:
         :return: The modified object template.
         :rtype: dict
         """
-        for attr in attributes_to_remove:
-            object_template.pop(attr, None)
-        return object_template
+        try:
+            for attr in attributes_to_remove:
+                object_template.pop(attr, None)
+            return object_template
+        except Exception as e:
+            error_message = "Error removing attributes from object"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return {}
 
     @staticmethod
     def datetime_to_string(date_obj):
@@ -152,4 +197,10 @@ class BaseService:
         :return: Corresponding date string in the format 'YYYY/MM/DD'.
         :rtype: str
         """
-        return date_obj.strftime("%Y/%m/%d")
+        try:
+            return date_obj.strftime("%Y/%m/%d")
+        except Exception as e:
+            error_message = "Error converting datetime object to string"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return ""

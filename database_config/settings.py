@@ -47,6 +47,8 @@ class DatabaseManager:
         if self.is_database_empty():
             print("Database contains no data.")
             self.fill_db_with_data()
+            AuthController(self.session, None, None, []).create_admin_user()
+
         else:
             print("Database already contains data.")
 
@@ -66,7 +68,6 @@ class DatabaseManager:
         """Fills the database with initial data by creating permissions, roles, and an admin user."""
         permission_obj_lst = PermissionController().create_permissions()
         RoleController().create_roles(permission_obj_lst, self.session)
-        AuthController.create_admin_user(self.session)
 
 
 # Initialize the Engine object

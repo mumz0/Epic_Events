@@ -39,13 +39,14 @@ class PermissionRepository(BaseRepository):
         try:
             permissions = (
                 session.query(Permission)
-                .join(RolePermission, Permission.id == RolePermission.permission)
-                .join(Role, Role.id == RolePermission.role)
+                .join(RolePermission, Permission.action == RolePermission.permission)
+                .join(Role, Role.name == RolePermission.role)
                 .filter(Role.name == role_name)
                 .all()
             )
             return permissions
         except Exception as e:
-            error_message = f"Error retrieving permissions for role {role_name}: {str(e)}"
+            error_message = f"Error retrieving permissions"
+            sentry_sdk.capture_message(error_message)
             sentry_sdk.capture_exception(e)
-            raise ValueError(error_message) from (e)
+            raise ValueError(error_message) from e
