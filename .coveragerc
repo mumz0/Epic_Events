@@ -1,0 +1,9 @@
+[run]
+source = src
+
+[report]
+# Inclure les fichiers non exécutés
+show_missing = True
+
+[html]
+directory = htmlcov

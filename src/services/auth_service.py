@@ -6,6 +6,7 @@ import os
 from datetime import datetime, timedelta
 
 import jwt
+import sentry_sdk
 from cryptography.fernet import Fernet
 from passlib.hash import argon2
 
@@ -37,9 +38,15 @@ class AuthService(BaseService):
         :return: True if the user has permission, False otherwise.
         :rtype: bool
         """
-        user_role_name = self.current_user.role.name
-        role_permissions = PermissionService().get_permissions(user_role_name, session)
-        return any(role_permission.action == "create" and role_permission.entity == "user" for role_permission in role_permissions)
+        try:
+            user_role_name = self.current_user.role.name
+            role_permissions = PermissionService().get_permissions(user_role_name, session)
+            return any(role_permission.action == "create" and role_permission.entity == "user" for role_permission in role_permissions)
+        except Exception as e:
+            error_message = "Error checking signup permission"
+            sentry_sdk.capture_exception(e)
+            print(error_message)
+            return False
 
     def signup_process(self, email: str, password: str, role: str, session):
         """
@@ -56,16 +63,24 @@ class AuthService(BaseService):
         :return: The created user or None if creation fails.
         :rtype: User or None
         """
-        # Vérifier si l'utilisateur existe déjà
-        existing_user = session.query(User).filter_by(email_address=email).first()
-        if existing_user:
-            return True
+        try:
+            if role is None:
+                raise Exception()
+            existing_user = session.query(User).filter_by(email_address=email).first()
+            if existing_user:
+                return True
 
-        user_data = {"email_address": email, "password": argon2.hash(password), "role_id": role}
-        user = BaseService(User).create(user_data, session)
-        if user:
-            return True
-        return False
+            user_data = {"email_address": email, "password": argon2.hash(password), "role_id": role}
+            user = BaseService(User).create(user_data, session)
+            if user:
+                return True
+            return False
+
+        except Exception as e:
+            error_message = "Error during signup process"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return False
 
     def signin_process(self, email: str, password: str, session):
         """
@@ -80,21 +95,28 @@ class AuthService(BaseService):
         :return: The authenticated user or None if authentication fails.
         :rtype: User or None
         """
-        user = UserService().get_user(email, session)
-        if not user or not argon2.verify(password, user.password):
-            return None
-
-        self.current_user = user
-        data = {"user_id": user.id}
-
         try:
+            user = UserService().get_user(email, session)
+            if not user or not argon2.verify(password, user.password):
+                return None
+
+            self.current_user = user
+            data = {"user_id": user.id}
+
             if os.getenv("ENCRYPTED_TOKEN") is None or user.token is None:
                 self._generate_and_store_token(data, user.id, session)
             self.verify_token(user.token)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
-            print(f"Token verification failed: {e}")
+            error_message = "Token verification failed"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
             self._generate_and_store_token(data, user.id, session)
             self.verify_token(user.token)
+        except Exception as e:
+            error_message = "Error during signin process"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
         return self.current_user
 
@@ -109,20 +131,31 @@ class AuthService(BaseService):
         :param session: The database session.
         :type session: Session
         """
-        self.generate_new_encryption_key()
-        token = self.generate_token(data)
-        self.encrypt_and_store_token(token, user_id, session)
-        os.environ["ENCRYPTED_TOKEN"] = token
+        try:
+            self.generate_new_encryption_key()
+            token = self.generate_token(data)
+            self.encrypt_and_store_token(token, user_id, session)
+            os.environ["ENCRYPTED_TOKEN"] = token
+        except Exception as e:
+            error_message = "Error generating and storing token"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
 
     def load_or_generate_key(self):
         """
         Loads the encryption key from the environment variable or generates a new one if not present.
         """
-        key = os.getenv("ENCRYPTION_KEY")
-        if key is None:
-            key = Fernet.generate_key().decode()
-            os.environ["ENCRYPTION_KEY"] = key
-        return key
+        try:
+            key = os.getenv("ENCRYPTION_KEY")
+            if key is None:
+                key = Fernet.generate_key().decode()
+                os.environ["ENCRYPTION_KEY"] = key
+            return key
+        except Exception as e:
+            error_message = "Error loading or generating encryption key"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def generate_token(self, data, expiration=3600):
         """
@@ -135,9 +168,15 @@ class AuthService(BaseService):
         :return: The generated JWT token.
         :rtype: str
         """
-        payload = data.copy()
-        payload["exp"] = datetime.utcnow() + timedelta(seconds=expiration)
-        return jwt.encode(payload, os.getenv("ENCRYPTION_KEY"), algorithm="HS256")
+        try:
+            payload = data.copy()
+            payload["exp"] = datetime.utcnow() + timedelta(seconds=expiration)
+            return jwt.encode(payload, os.getenv("ENCRYPTION_KEY"), algorithm="HS256")
+        except Exception as e:
+            error_message = "Error generating token"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def encrypt_and_store_token(self, token, user_id, session):
         """
@@ -150,8 +189,13 @@ class AuthService(BaseService):
         :param session: The database session.
         :type session: Session
         """
-        encrypted_token = Fernet(os.getenv("ENCRYPTION_KEY")).encrypt(token.encode()).decode()
-        self.repository.update_attr(user_id, "token", encrypted_token, session)
+        try:
+            encrypted_token = Fernet(os.getenv("ENCRYPTION_KEY")).encrypt(token.encode()).decode()
+            self.repository.update_attr(user_id, "token", encrypted_token, session)
+        except Exception as e:
+            error_message = "Error encrypting and storing token"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
 
     def load_and_decrypt_token(self):
         """
@@ -160,10 +204,16 @@ class AuthService(BaseService):
         :return: The decrypted JWT token.
         :rtype: str
         """
-        encrypted_token = os.getenv("ENCRYPTED_TOKEN")
-        if encrypted_token:
-            return Fernet(os.getenv("ENCRYPTION_KEY")).decrypt(encrypted_token.encode()).decode()
-        return None
+        try:
+            encrypted_token = os.getenv("ENCRYPTED_TOKEN")
+            if encrypted_token:
+                return Fernet(os.getenv("ENCRYPTION_KEY")).decrypt(encrypted_token.encode()).decode()
+            return None
+        except Exception as e:
+            error_message = "Error loading and decrypting token"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def verify_token(self, token):
         """
@@ -174,11 +224,22 @@ class AuthService(BaseService):
         :return: The decoded payload.
         :rtype: dict
         """
-        decrypted_token = Fernet(os.getenv("ENCRYPTION_KEY")).decrypt(token.encode())
-        return jwt.decode(decrypted_token, os.getenv("ENCRYPTION_KEY"), algorithms=["HS256"])
+        try:
+            decrypted_token = Fernet(os.getenv("ENCRYPTION_KEY")).decrypt(token.encode())
+            return jwt.decode(decrypted_token, os.getenv("ENCRYPTION_KEY"), algorithms=["HS256"])
+        except Exception as e:
+            error_message = "Error verifying token"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)
+            return None
 
     def generate_new_encryption_key(self):
         """
         Generates a new encryption key and updates the environment variable.
         """
-        os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        try:
+            os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        except Exception as e:
+            error_message = "Error generating new encryption key"
+            sentry_sdk.capture_exception(e)
+            sentry_sdk.capture_message(error_message)

@@ -38,9 +38,9 @@ class ContractRepository(BaseRepository):
             contracts = session.query(Contract).filter(Contract.sales_contact_id == email).all()
             return contracts
         except Exception as e:
-            error_message = f"Error filtering contracts by sales email address: {str(e)}"
+            sentry_sdk.capture_message("Error retrieving contract")
             sentry_sdk.capture_exception(e)
-            raise ValueError(error_message) from (e)
+            return False
 
     def filter_by_client_email_address(self, email: str, session) -> list:
         """
@@ -93,9 +93,9 @@ class ContractRepository(BaseRepository):
         """
         try:
             if is_payed is True:
-                contracts = session.query(Contract).filter(Contract.Outstanding_balance == Contract.price).all()
+                contracts = session.query(Contract).filter(Contract.Outstanding_balance == 0).all()
             elif is_payed is False:
-                contracts = session.query(Contract).filter(Contract.Outstanding_balance != Contract.price).all()
+                contracts = session.query(Contract).filter(Contract.Outstanding_balance > 0).all()
             else:
                 error_message = "The value must be a boolean."
                 sentry_sdk.capture_message(error_message)
@@ -103,5 +103,19 @@ class ContractRepository(BaseRepository):
             return contracts
         except Exception as e:
             error_message = f"Error filtering contracts by payed status: {str(e)}"
+            sentry_sdk.capture_exception(e)
+            raise ValueError(error_message) from (e)
+
+    def find_existing_uid(self, session, uid_with_prefix: str) -> str:
+        """
+        Find existing UID.
+
+        :return: The existing UID.
+        :rtype: str
+        """
+        try:
+            return session.query(Contract).filter(Contract.id == uid_with_prefix).first()
+        except Exception as e:
+            error_message = "Error finding existing UID"
             sentry_sdk.capture_exception(e)
             raise ValueError(error_message) from (e)

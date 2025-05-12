@@ -12,6 +12,7 @@ from sentry_sdk.integrations.logging import LoggingIntegration
 from sentry_sdk.integrations.serverless import serverless_function
 
 from database_config.settings import database_manager
+from src.controllers.auth_controller import AuthController
 from src.controllers.main_controller import MainController
 from src.views.base_view import BaseView
 

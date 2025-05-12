@@ -1,11 +1,13 @@
 # pylint: disable=W0246
 """This file defines the ContractController class for handling user-related operations."""
 
+from datetime import datetime
+
 import urwid
 
 from src.controllers.base_controller import BaseController
 from src.models.event import Event
-from src.repositories.event_reposiroty import EventRepository
+from src.repositories.event_repository import EventRepository
 from src.services.base_service import BaseService
 from src.services.contract_service import ContractService
 from src.services.event_service import EventService
@@ -339,8 +341,8 @@ class EventController(BaseController):
             event_data = {
                 "id": EventService().generate_uid(self.session),
                 "name": layout_dict["edits"][0].get_edit_text(),
-                "start_date": datetime_start_date,
-                "end_date": datetime_end_date,
+                "start_date": datetime.strptime(layout_dict["edits"][1].get_edit_text(), "%Y/%m/%d"),
+                "end_date": datetime.strptime(layout_dict["edits"][2].get_edit_text(), "%Y/%m/%d"),
                 "location": layout_dict["edits"][3].get_edit_text(),
                 "attendees": layout_dict["edits"][4].get_edit_text(),
                 "notes": layout_dict["edits"][5].get_edit_text(),
@@ -376,10 +378,6 @@ class EventController(BaseController):
         :param event_object: The event object for which the details view buttons are created.
         :type event_object: Event
         """
-        new_start_date = BaseService.datetime_to_string(event_object.start_date)
-        new_end_date = BaseService.datetime_to_string(event_object.end_date)
-        event_object.start_date = new_start_date
-        event_object.end_date = new_end_date
         event_template_dict = event_object.to_dict()
 
         new_event_template_dict = BaseService(Event).remove_attributes_from_object(event_template_dict, ["ID", "Client ID", "Contract ID"])

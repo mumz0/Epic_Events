@@ -37,8 +37,14 @@ class UserService(BaseService):
         :return: True if authentication is successful, False otherwise.
         :rtype: bool
         """
-        user = self.repository.find_by_email(email, session)
-        return user
+        try:
+            user = self.repository.find_by_email(email, session)
+            return user
+        except Exception as e:
+            error_message = "Error retrieving user"
+            sentry_sdk.capture_message(error_message)
+            sentry_sdk.capture_exception(e)
+            return False
 
     def create_user(self, data, session):
         """
@@ -55,9 +61,10 @@ class UserService(BaseService):
             instance = self.model(**data)
             return self.repository.add(instance, session)
         except Exception as e:
-            error_message = f"Error creating user: {str(e)}"
+            error_message = "Error creating user"
+            sentry_sdk.capture_message(error_message)
             sentry_sdk.capture_exception(e)
-            raise ValueError(error_message) from (e)
+            raise ValueError(error_message) from e
 
     def prepare_data_and_update(self, data, obj, session):
         """
@@ -74,18 +81,21 @@ class UserService(BaseService):
         """
         try:
             role_service = RoleService()
-            role = role_service.get_by_name(data["Role"], session)
+            role = role_service.get_by_name(data.get("Role"), session)
             if not role:
-                error_message = f"Role '{data['Role']}' not found."
+                error_message = f"Role '{data.get('Role')}' not found"
                 sentry_sdk.capture_message(error_message)
                 raise ValueError(error_message)
 
-            data = {"email_address": data["Email address"], "role_id": role.name}
-            return self.repository.update_obj(obj.id, data, session)
+            update_data = {"email_address": data.get("Email address"), "role_id": role.name}
+            return self.repository.update_obj(obj.id, update_data, session)
+        except ValueError as e:
+            raise e
         except Exception as e:
-            error_message = f"Error preparing data and updating user: {str(e)}"
+            error_message = "Error while updating user data"
+            sentry_sdk.capture_message(error_message)
             sentry_sdk.capture_exception(e)
-            raise ValueError(error_message) from (e)
+            raise ValueError(error_message) from e
 
     def list_to_dict(self, user_list):
         """
@@ -96,12 +106,22 @@ class UserService(BaseService):
         :return: A dictionary of User objects.
         :rtype: dict
         """
-        user_dict = {}
-        for client in user_list:
-            user_dict[client.id] = client.to_dict()
-        return user_dict
+        try:
+            user_dict = {}
+            for client in user_list:
+                user_dict[client.id] = client.to_dict()
+            return user_dict
+        except Exception as e:
+            sentry_sdk.capture_message("Error converting user list to dictionary")
+            sentry_sdk.capture_exception(e)
+            return {}
 
     def get_by_email(self, email, session):
         """Retrieve a user by email address."""
-        user = self.repository.find_by_email(email, session)
-        return user
+        try:
+            user = self.repository.find_by_email(email, session)
+            return user
+        except Exception as e:
+            sentry_sdk.capture_message("Error retrieving user by email")
+            sentry_sdk.capture_exception(e)
+            return None
