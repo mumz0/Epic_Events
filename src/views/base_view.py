@@ -309,3 +309,32 @@ class BaseView:
             height=("relative", 20),
         )
         return popup, buttons
+
+    def create_expired_token_popup(self):
+        body = urwid.Text("Votre session a expiré. Veuillez vous reconnecter.")
+        button = urwid.Button("OK")
+        popup = urwid.Filler(urwid.Pile([body, button]))
+        return popup, button
+
+    def create_exit_confirmation_view(self):
+        """
+        Creates and returns the exit confirmation popup view.
+        """
+        yes_button = urwid.Button("Yes")
+        no_button = urwid.Button("No")
+        buttons = [yes_button, no_button]
+
+        pile = urwid.Pile([
+            urwid.Text("Do you really want to exit?"),
+            urwid.Columns([yes_button, no_button])
+        ])
+
+        popup = urwid.Overlay(
+            urwid.LineBox(pile),
+            self.loop.widget,
+            align="center",
+            width=("relative", 50),
+            valign="middle",
+            height=("relative", 20),
+        )
+        return popup, buttons

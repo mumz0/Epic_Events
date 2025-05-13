@@ -1,6 +1,8 @@
 # pylint: disable=W0246
 """This file defines the UserController class for handling user-related operations."""
 
+import logging
+import sentry_sdk
 import urwid
 
 from src.controllers.base_controller import BaseController
@@ -10,6 +12,7 @@ from src.services.auth_service import AuthService
 from src.services.base_service import BaseService
 from src.services.user_service import UserService
 from src.views.paginated_view import PaginatedView
+from utils.decorators import require_valid_token
 
 
 class UserController(BaseController):
@@ -33,13 +36,15 @@ class UserController(BaseController):
         """
         super().__init__(session, base_view, current_user, history)
 
+    @require_valid_token
     def all_users(self):
         """
         Retrieve and display all users.
         This method retrieves all user objects from the database, converts them to a dictionary format,
         and displays them in a paginated view. It also sets up the necessary signals for user interaction.
         """
-
+        sentry_sdk.capture_message(f"all users: {str(self.current_user.id)}")
+        
         user_objects = UserRepository().get_all(self.session)
         user_list_dict = UserService().list_to_dict(user_objects)
         paginated_view = PaginatedView(user_list_dict, "> Home > Users")

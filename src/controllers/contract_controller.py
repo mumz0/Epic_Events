@@ -11,6 +11,7 @@ from src.repositories.contract_repository import ContractRepository
 from src.services.base_service import BaseService
 from src.services.contract_service import ContractService
 from src.views.paginated_view import PaginatedView
+from utils.decorators import require_valid_token
 
 
 class ContractController(BaseController):
@@ -34,6 +35,7 @@ class ContractController(BaseController):
         """
         super().__init__(session, base_view, current_user, history)
 
+    @require_valid_token
     def paginated_contracts_displayed(self, title: str, filter_type: str, client_email_address=None):
         """
         Retrieve and display all users.

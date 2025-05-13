@@ -21,13 +21,10 @@ load_dotenv()
 # Configuration Sentry
 sentry_logging = LoggingIntegration(level=logging.INFO, event_level=logging.INFO)
 sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
+    dsn=os.getenv("SENTRY_KEY"),
     integrations=[sentry_logging],
     send_default_pii=True,
     traces_sample_rate=1.0,
-    _experiments={
-        "continuous_profiling_auto_start": True,
-    },
 )
 
 

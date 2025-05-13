@@ -1,6 +1,7 @@
 # pylint: disable=useless-parent-delegation
 """This file defines the MainController class for initializing and running the application."""
 
+import sentry_sdk
 import urwid
 from sentry_sdk.integrations.serverless import serverless_function
 
@@ -42,7 +43,6 @@ class MainController(BaseController):
 
         urwid.connect_signal(buttons[0].base_widget, "click", lambda button: self.handle_button_pressed(auth_controller.signin))
         urwid.connect_signal(buttons[1].base_widget, "click", lambda button: self.handle_button_pressed(self.handle_exit_click))
-
         self.base_view.init_main_loop(layout, lambda button: self.handle_back_keypress("esc"))
 
         self.base_view.loop.run()
