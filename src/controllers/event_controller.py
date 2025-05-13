@@ -360,12 +360,12 @@ class EventController(BaseController):
                     self.base_view.update_screen(self.history[0])
             else:
                 popup, buttons = self.base_view.create_message_popup("Contract not signed yet.")
-                urwid.connect_signal(buttons[0], "click", lambda button: self.remove_popup())
+                urwid.connect_signal(buttons[0], "click", lambda button: self.handle_remove_popup())
                 self.base_view.update_screen(popup)
 
         except ValueError as e:
             popup, button = self.base_view.create_message_popup(str(e))
-            urwid.connect_signal(button, "click", lambda button: self.remove_popup())
+            urwid.connect_signal(button, "click", lambda button: self.handle_remove_popup())
             self.base_view.update_screen(popup)
 
     def create_details_view_buttons_signal(self, buttons, event_object):

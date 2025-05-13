@@ -54,7 +54,6 @@ class ContractController(BaseController):
         self.history.append(layout)
         self.base_view.update_screen(layout)
 
-    @serverless_function
     def define_data_to_display(self, filter_type, client_email_address):
         """
         Retrieves contract objects based on the given filter.

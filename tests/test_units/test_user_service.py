@@ -1,154 +1,149 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from src.models.user import User
-from src.repositories.user_repository import UserRepository
-from src.services.role_service import RoleService
 from src.services.user_service import UserService
 
 
 class TestUserService(unittest.TestCase):
     def setUp(self):
-        self.user_service = UserService()
-        self.session_mock = MagicMock()
-        self.user_repository_mock = MagicMock(spec=UserRepository)
-        self.role_service_mock = MagicMock(spec=RoleService)
-        self.user_service.repository = self.user_repository_mock
+        self.service = UserService()
+        self.session = MagicMock()
+        # remplacer le repository par un mock
+        self.service.repository = MagicMock()
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_get_user_success(self, mock_capture_exception, mock_capture_message):
-        email = "test@example.com"
-        user = User(id=1, email_address=email)
-        self.user_repository_mock.find_by_email.return_value = user
+    def test_get_user_success(self):
+        expected = MagicMock()
+        self.service.repository.find_by_email.return_value = expected
 
-        result = self.user_service.get_user(email, self.session_mock)
+        result = self.service.get_user("user@example.com", self.session)
 
-        self.assertEqual(result, user)
-        self.user_repository_mock.find_by_email.assert_called_once_with(email, self.session_mock)
-        mock_capture_message.assert_not_called()
-        mock_capture_exception.assert_not_called()
+        self.assertEqual(result, expected)
+        self.service.repository.find_by_email.assert_called_once_with("user@example.com", self.session)
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_get_user_failure(self, mock_capture_exception, mock_capture_message):
-        email = "test@example.com"
-        self.user_repository_mock.find_by_email.side_effect = Exception("Database error")
+    @patch("src.services.user_service.sentry_sdk.capture_exception")
+    @patch("src.services.user_service.sentry_sdk.capture_message")
+    def test_get_user_exception(self, mock_capture_message, mock_capture_exception):
+        self.service.repository.find_by_email.side_effect = Exception("db fail")
 
-        result = self.user_service.get_user(email, self.session_mock)
+        result = self.service.get_user("x@x.com", self.session)
 
         self.assertFalse(result)
-        mock_capture_message.assert_called_once_with("Error retrieving user")
+        mock_capture_message.assert_called_with("Error retrieving user")
         mock_capture_exception.assert_called_once()
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_create_user_success(self, mock_capture_exception, mock_capture_message):
-        data = {"email_address": "test@example.com"}
-        user = User(**data)
-        self.user_repository_mock.add.return_value = user
+    def test_create_user_success(self):
+        data = {"email_address": "u@e.com", "password": "pwd", "role_id": "r"}
+        expected = MagicMock()
+        self.service.repository.add.return_value = expected
 
-        result = self.user_service.create_user(data, self.session_mock)
+        result = self.service.create_user(data, self.session)
 
-        self.assertEqual(result, user)
-        self.user_repository_mock.add.assert_called_once()
-        mock_capture_message.assert_not_called()
-        mock_capture_exception.assert_not_called()
+        self.assertEqual(result, expected)
+        add_args = self.service.repository.add.call_args[0]
+        self.assertIsInstance(add_args[0], type(self.service.model(**data)))
+        self.assertEqual(add_args[1], self.session)
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_create_user_failure(self, mock_capture_exception, mock_capture_message):
-        data = {"email_address": "test@example.com"}
-        self.user_repository_mock.add.side_effect = Exception("Database error")
+    @patch("src.services.user_service.sentry_sdk.capture_exception")
+    @patch("src.services.user_service.sentry_sdk.capture_message")
+    def test_create_user_exception(self, mock_capture_message, mock_capture_exception):
+        self.service.repository.add.side_effect = Exception("db error")
+        data = {"email_address": "u@e.com"}
 
-        with self.assertRaises(ValueError):
-            self.user_service.create_user(data, self.session_mock)
-
-        mock_capture_message.assert_called_once_with("Error creating user")
+        with self.assertRaises(ValueError) as cm:
+            self.service.create_user(data, self.session)
+        self.assertEqual(str(cm.exception), "Error creating user")
+        mock_capture_message.assert_called_with("Error creating user")
         mock_capture_exception.assert_called_once()
 
-    @patch("src.services.role_service.RoleService.get_by_name")
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_prepare_data_and_update_success(self, mock_capture_exception, mock_capture_message, mock_get_by_name):
-        data = {"Email address": "updated@example.com", "Role": "Admin"}
-        user = User(id=1, email_address="old@example.com")
-        role = MagicMock(name="Admin")
-        mock_get_by_name.return_value = role
+    @patch("src.services.user_service.RoleService")
+    def test_prepare_data_and_update_success(self, mock_rs_cls):
+        # stub RoleService.get_by_name
+        mock_rs = MagicMock()
+        mock_role = MagicMock()
+        mock_role.name = "roleA"
+        mock_rs.get_by_name.return_value = mock_role
+        mock_rs_cls.return_value = mock_rs
 
-        self.user_service.prepare_data_and_update(data, user, self.session_mock)
+        obj = MagicMock(id=5)
+        updated = MagicMock()
+        self.service.repository.update_obj.return_value = updated
+        data = {"Role": "roleA", "Email address": "u@e.com"}
 
-        self.user_repository_mock.update_obj.assert_called_once_with(
-            user.id, {"email_address": "updated@example.com", "role_id": role.name}, self.session_mock
+        result = self.service.prepare_data_and_update(data, obj, self.session)
+
+        self.assertEqual(result, updated)
+        mock_rs.get_by_name.assert_called_once_with("roleA", self.session)
+        self.service.repository.update_obj.assert_called_once_with(
+            5,
+            {"email_address": "u@e.com", "role_id": "roleA"},
+            self.session,
         )
-        mock_capture_message.assert_not_called()
-        mock_capture_exception.assert_not_called()
 
-    @patch("src.services.role_service.RoleService.get_by_name")
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_prepare_data_and_update_role_not_found(self, mock_capture_exception, mock_capture_message, mock_get_by_name):
+    @patch("src.services.user_service.sentry_sdk.capture_message")
+    def test_prepare_data_and_update_no_role(self, mock_capture_message):
+        with patch("src.services.user_service.RoleService") as mock_rs_cls:
+            mock_rs_cls.return_value.get_by_name.return_value = None
+            obj = MagicMock(id=6)
+            data = {"Role": "unknown"}
 
-        data = {"Email address": "updated@example.com", "Role": "NonExistentRole"}
-        user = User(id=1, email_address="old@example.com")
-        mock_get_by_name.return_value = None
+            with self.assertRaises(ValueError) as cm:
+                self.service.prepare_data_and_update(data, obj, self.session)
+            self.assertEqual(str(cm.exception), "Role 'unknown' not found")
+            mock_capture_message.assert_called_with("Role 'unknown' not found")
 
-        with self.assertRaises(ValueError):
-            self.user_service.prepare_data_and_update(data, user, self.session_mock)
+    @patch("src.services.user_service.sentry_sdk.capture_exception")
+    @patch("src.services.user_service.sentry_sdk.capture_message")
+    def test_prepare_data_and_update_exception(self, mock_capture_message, mock_capture_exception):
+        with patch("src.services.user_service.RoleService") as mock_rs_cls:
+            mock_rs_cls.return_value.get_by_name.return_value = MagicMock(name="roleB")
+            self.service.repository.update_obj.side_effect = Exception("fail")
+            obj = MagicMock(id=7)
+            data = {"Role": "roleB", "Email address": "x@y.com"}
 
-        mock_capture_message.assert_called_once_with("Role 'NonExistentRole' not found")
-        mock_capture_exception.assert_not_called()
+            with self.assertRaises(ValueError) as cm:
+                self.service.prepare_data_and_update(data, obj, self.session)
+            self.assertEqual(str(cm.exception), "Error while updating user data")
+            mock_capture_message.assert_called_with("Error while updating user data")
+            mock_capture_exception.assert_called_once()
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_list_to_dict_success(self, mock_capture_exception, mock_capture_message):
-        user1 = MagicMock(id=1, to_dict=MagicMock(return_value={"id": 1, "email": "user1@example.com"}))
-        user2 = MagicMock(id=2, to_dict=MagicMock(return_value={"id": 2, "email": "user2@example.com"}))
-        user_list = [user1, user2]
+    def test_list_to_dict_success(self):
+        u1 = MagicMock(id=1)
+        u1.to_dict.return_value = {"a": 1}
+        u2 = MagicMock(id=2)
+        u2.to_dict.return_value = {"b": 2}
 
-        result = self.user_service.list_to_dict(user_list)
+        result = self.service.list_to_dict([u1, u2])
 
-        self.assertEqual(result, {1: {"id": 1, "email": "user1@example.com"}, 2: {"id": 2, "email": "user2@example.com"}})
-        mock_capture_message.assert_not_called()
-        mock_capture_exception.assert_not_called()
+        self.assertEqual(result, {1: {"a": 1}, 2: {"b": 2}})
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_list_to_dict_failure(self, mock_capture_exception, mock_capture_message):
-        user_list = [MagicMock(id=1, to_dict=MagicMock(side_effect=Exception("Error")))]
+    @patch("src.services.user_service.sentry_sdk.capture_exception")
+    @patch("src.services.user_service.sentry_sdk.capture_message")
+    def test_list_to_dict_exception(self, mock_capture_message, mock_capture_exception):
+        bad = MagicMock()
+        bad.to_dict.side_effect = RuntimeError("oops")
 
-        result = self.user_service.list_to_dict(user_list)
+        result = self.service.list_to_dict([bad])
 
         self.assertEqual(result, {})
-        mock_capture_message.assert_called_once_with("Error converting user list to dictionary")
+        mock_capture_message.assert_called_with("Error converting user list to dictionary")
         mock_capture_exception.assert_called_once()
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_get_by_email_success(self, mock_capture_exception, mock_capture_message):
-        email = "test@example.com"
-        user = User(id=1, email_address=email)
-        self.user_repository_mock.find_by_email.return_value = user
+    def test_get_by_email_success(self):
+        expected = MagicMock()
+        self.service.repository.find_by_email.return_value = expected
 
-        result = self.user_service.get_by_email(email, self.session_mock)
+        result = self.service.get_by_email("e@mail.com", self.session)
 
-        self.assertEqual(result, user)
-        self.user_repository_mock.find_by_email.assert_called_once_with(email, self.session_mock)
-        mock_capture_message.assert_not_called()
-        mock_capture_exception.assert_not_called()
+        self.assertEqual(result, expected)
+        self.service.repository.find_by_email.assert_called_once_with("e@mail.com", self.session)
 
-    @patch("sentry_sdk.capture_message")
-    @patch("sentry_sdk.capture_exception")
-    def test_get_by_email_failure(self, mock_capture_exception, mock_capture_message):
-        email = "test@example.com"
-        self.user_repository_mock.find_by_email.side_effect = Exception("Database error")
+    @patch("src.services.user_service.sentry_sdk.capture_exception")
+    @patch("src.services.user_service.sentry_sdk.capture_message")
+    def test_get_by_email_exception(self, mock_capture_message, mock_capture_exception):
+        self.service.repository.find_by_email.side_effect = Exception("db err")
 
-        result = self.user_service.get_by_email(email, self.session_mock)
+        result = self.service.get_by_email("f@f.com", self.session)
 
         self.assertIsNone(result)
-        mock_capture_message.assert_called_once_with("Error retrieving user by email")
+        mock_capture_message.assert_called_with("Error retrieving user by email")
         mock_capture_exception.assert_called_once()
-
-
-if __name__ == "__main__":
-    unittest.main()

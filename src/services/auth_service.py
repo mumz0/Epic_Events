@@ -155,7 +155,7 @@ class AuthService(BaseService):
             sentry_sdk.capture_message(error_message)
             return None
 
-    def generate_token(self, data, expiration=20):
+    def generate_token(self, data, expiration=20000):
         """
         Generates a JWT token.
 

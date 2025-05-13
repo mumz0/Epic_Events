@@ -80,7 +80,7 @@ class UserRepository(BaseRepository):
         :rtype: list
         """
         try:
-            users = session.query(self.model).filter(self.model.role_id != 1).all()
+            users = session.query(self.model).filter(self.model.role_id != 'admin').all()
             return users
         except Exception as e:
             error_message = f"Error retrieving all users except admin: {str(e)}"

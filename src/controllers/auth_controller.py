@@ -59,7 +59,7 @@ class AuthController(BaseController):
             "click",
             lambda button: self.handle_auth_form_button_event(
                 layout_dict)
-            ),
+            )
 
 
         # Update the screen with the new layout
@@ -110,7 +110,7 @@ class AuthController(BaseController):
                         ),
                         (
                             "Exit",
-                            lambda: BaseController(self.session, self.base_view, self.current_user, self.history).show_exit_confirmation()
+                            lambda: BaseController(self.session, self.base_view, self.current_user, self.history).handle_exit_confirmation()
                         ),
                     ],
                 ),
