@@ -140,31 +140,28 @@ class ClientController(BaseController):
 
     def handle_client_creation_button_event(self, layout_dict):
         """
-        Handle the user creation button event by processing the user's email, password, and role,
-        then optionally invoking a redirection function.
-
-        :param layout_dict: A dictionary containing UI elements for fetching user input fields
-            (e.g., email, password, role_name).
-        :type layout_dict: dict
-        :param redirect_func: A callable function to redirect after successful user creation, or None.
-        :type redirect_func: callable, optional
+        Handle the client‐creation button event by validating the sales contact first,
+        then reading form fields and persisting a new Client if the contact exists.
         """
+        # 1) Verify sales contact exists before touching form fields
+        if not UserService().get_by_email(self.current_user.email_address, self.session):
+            self.base_view.display_message("Sales contact does not exist. Please try again.")
+            return
 
+        # 2) Safely read form inputs
+        edits = layout_dict.get("edits", [])
         client_data = {
-            "name": layout_dict["edits"][0].get_edit_text(),
-            "email_address": layout_dict["edits"][1].get_edit_text(),
-            "phone": layout_dict["edits"][2].get_edit_text(),
-            "compagny": layout_dict["edits"][3].get_edit_text(),
+            "name":        edits[0].get_edit_text(),
+            "email_address": edits[1].get_edit_text(),
+            "phone":       edits[2].get_edit_text(),
+            "compagny":    edits[3].get_edit_text(),
             "sales_contact_id": self.current_user.email_address,
         }
-        user_exist = UserService().get_by_email(self.current_user.email_address, self.session)
-        if user_exist:
-            BaseService(Client).create(client_data, self.session)
-            self.history.pop()
 
-            self.base_view.update_screen(self.history[0])
-        else:
-            self.base_view.display_message("Sales contact does not exist. Please try again.")
+        # 3) Persist and navigate back
+        BaseService(Client).create(client_data, self.session)
+        self.history.pop()
+        self.base_view.update_screen(self.history[0])
 
     def create_details_view_buttons_signal(self, buttons, client_object):
         """

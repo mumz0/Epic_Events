@@ -1,5 +1,7 @@
 [run]
 source = src
+omit =
+    tests/*
 
 [report]
 # Inclure les fichiers non exécutés

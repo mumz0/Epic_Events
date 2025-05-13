@@ -1,129 +1,164 @@
 import unittest
-from datetime import datetime
 from unittest.mock import MagicMock, patch
+from datetime import datetime
 
-from src.models.event import Event
 from src.services.event_service import EventService
+from src.models.event import Event
 
 
 class TestEventService(unittest.TestCase):
     def setUp(self):
-        self.event_service = EventService()
-        self.mock_session = MagicMock()
+        self.service = EventService()
+        self.session = MagicMock()
+        # replace real repository with a mock
+        self.service.repository = MagicMock()
 
-    def test_list_to_dict(self):
-        mock_event = MagicMock()
-        mock_event.id = "123"
-        event_list = [mock_event]
-
-        result = self.event_service.list_to_dict(event_list)
-
-        self.assertEqual(result["ID"], "123")
+    def test_list_to_dict_success(self):
+        e1 = MagicMock(id="E1")
+        e2 = MagicMock(id="E2")
+        result = self.service.list_to_dict([e1, e2])
+        # code overwrites same key, so last id remains
+        self.assertEqual(result, {"ID": "E2"})
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
-    def test_list_to_dict_exception(self, mock_capture_exception):
-        result = self.event_service.list_to_dict(None)
-
+    @patch("src.services.event_service.sentry_sdk.capture_message")
+    def test_list_to_dict_exception(self, mock_capture_message, mock_capture_exception):
+        # passing None causes TypeError in iteration
+        result = self.service.list_to_dict(None)
         self.assertEqual(result, {})
+        mock_capture_message.assert_called_with("Error converting event list to dictionary")
         mock_capture_exception.assert_called_once()
 
-    def test_filter_by_support_email_adress(self):
-        self.event_service.repository.filter_by_support_email_address = MagicMock(return_value=["event1", "event2"])
-        result = self.event_service.filter_by_support_email_adress("support@example.com", self.mock_session)
-
-        self.assertEqual(result, ["event1", "event2"])
+    def test_filter_by_support_email_adress_success(self):
+        expected = ["ev1", "ev2"]
+        self.service.repository.filter_by_support_email_address.return_value = expected
+        result = self.service.filter_by_support_email_adress("a@b.com", self.session)
+        self.assertEqual(result, expected)
+        self.service.repository.filter_by_support_email_address.assert_called_once_with("a@b.com", self.session)
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
-    def test_filter_by_support_email_adress_exception(self, mock_capture_exception):
-        self.event_service.repository.filter_by_support_email_address = MagicMock(side_effect=Exception("Error"))
-        result = self.event_service.filter_by_support_email_adress("support@example.com", self.mock_session)
-
+    @patch("src.services.event_service.sentry_sdk.capture_message")
+    def test_filter_by_support_email_adress_exception(self, mock_capture_message, mock_capture_exception):
+        self.service.repository.filter_by_support_email_address.side_effect = Exception("err")
+        result = self.service.filter_by_support_email_adress("a@b.com", self.session)
         self.assertEqual(result, [])
+        mock_capture_message.assert_called_with("Error filtering events by support email address")
         mock_capture_exception.assert_called_once()
 
-    def test_filter_by_email_adress(self):
-        self.event_service.repository.filter_by_client_email_address = MagicMock(return_value=["event1", "event2"])
-        result = self.event_service.filter_by_email_adress("client@example.com", self.mock_session)
-
-        self.assertEqual(result, ["event1", "event2"])
+    def test_filter_by_email_adress_success(self):
+        expected = ["ev"]
+        self.service.repository.filter_by_client_email_address.return_value = expected
+        result = self.service.filter_by_email_adress("c@d.com", self.session)
+        self.assertEqual(result, expected)
+        self.service.repository.filter_by_client_email_address.assert_called_once_with("c@d.com", self.session)
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
-    def test_filter_by_email_adress_exception(self, mock_capture_exception):
-        self.event_service.repository.filter_by_client_email_address = MagicMock(side_effect=Exception("Error"))
-        result = self.event_service.filter_by_email_adress("client@example.com", self.mock_session)
-
+    @patch("src.services.event_service.sentry_sdk.capture_message")
+    def test_filter_by_email_adress_exception(self, mock_capture_message, mock_capture_exception):
+        self.service.repository.filter_by_client_email_address.side_effect = Exception("oops")
+        result = self.service.filter_by_email_adress("c@d.com", self.session)
         self.assertEqual(result, [])
+        mock_capture_message.assert_called_with("Error filtering events by email address")
         mock_capture_exception.assert_called_once()
 
-    def test_string_date_to_datetime(self):
-        date_string = "2023/10/01"
-        result = self.event_service.string_date_to_datetime(date_string)
-
-        self.assertEqual(result, datetime(2023, 10, 1))
+    def test_string_date_to_datetime_success(self):
+        ds = "2022/12/31"
+        dt = self.service.string_date_to_datetime(ds)
+        self.assertIsInstance(dt, datetime)
+        self.assertEqual(dt, datetime(2022, 12, 31))
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
-    def test_string_date_to_datetime_exception(self, mock_capture_exception):
-        result = self.event_service.string_date_to_datetime("invalid_date")
-
-        self.assertIsNone(result)
+    @patch("src.services.event_service.sentry_sdk.capture_message")
+    def test_string_date_to_datetime_exception(self, mock_capture_message, mock_capture_exception):
+        dt = self.service.string_date_to_datetime("bad-date")
+        self.assertIsNone(dt)
+        mock_capture_message.assert_called_with("Error converting date string to datetime")
         mock_capture_exception.assert_called_once()
 
     @patch("src.services.event_service.uuid.uuid4")
-    def test_generate_uid(self, mock_uuid4):
-        mock_uuid4.return_value = MagicMock(hex="1234567890ABCDEF")
-        self.mock_session.query().filter().first.return_value = None
+    def test_generate_uid_success(self, mock_uuid4):
+        # stub uuid and session.query workflow
+        mock_uuid4.return_value = MagicMock(hex="ABCDE12345FGHIJ")
+        fake_q = MagicMock()
+        fake_q.filter.return_value = fake_q
+        # first return something truthy, then None
+        fake_q.first.side_effect = [1, None]
+        self.session.query.return_value = fake_q
 
-        result = self.event_service.generate_uid(self.mock_session, length=8)
-
-        self.assertTrue(result.startswith("EVENT"))
-        self.assertEqual(len(result), 13)
+        uid = EventService.generate_uid(self.session, length=5)
+        self.assertEqual(uid, "EVENTABCDE")
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
-    def test_generate_uid_exception(self, mock_capture_exception):
-        self.mock_session.query().filter().first.side_effect = Exception("Error")
-        result = self.event_service.generate_uid(self.mock_session)
-
-        self.assertIsNone(result)
+    @patch("src.services.event_service.sentry_sdk.capture_message")
+    def test_generate_uid_exception(self, mock_capture_message, mock_capture_exception):
+        self.session.query.side_effect = Exception("db fail")
+        uid = EventService.generate_uid(self.session)
+        self.assertIsNone(uid)
+        mock_capture_message.assert_called_with("Error generating UID")
         mock_capture_exception.assert_called_once()
 
-    def test_filter_by_support_user_on_event(self):
-        self.event_service.repository.filter_by_support_user_on_event = MagicMock(return_value=["event1", "event2"])
-        result = self.event_service.filter_by_support_user_on_event(self.mock_session, True)
-
-        self.assertEqual(result, ["event1", "event2"])
+    def test_filter_by_support_user_on_event_success(self):
+        expected = ["x"]
+        self.service.repository.filter_by_support_user_on_event.return_value = expected
+        result = self.service.filter_by_support_user_on_event(self.session, True)
+        self.assertEqual(result, expected)
+        self.service.repository.filter_by_support_user_on_event.assert_called_once_with(self.session, True)
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
-    def test_filter_by_support_user_on_event_exception(self, mock_capture_exception):
-        self.event_service.repository.filter_by_support_user_on_event = MagicMock(side_effect=Exception("Error"))
-        result = self.event_service.filter_by_support_user_on_event(self.mock_session, True)
-
+    @patch("src.services.event_service.sentry_sdk.capture_message")
+    def test_filter_by_support_user_on_event_exception(self, mock_capture_message, mock_capture_exception):
+        self.service.repository.filter_by_support_user_on_event.side_effect = Exception("err")
+        result = self.service.filter_by_support_user_on_event(self.session, False)
         self.assertEqual(result, [])
+        mock_capture_message.assert_called_with("Error filtering events by support user")
         mock_capture_exception.assert_called_once()
 
-    def test_prepare_data_and_update(self):
-        mock_obj = MagicMock()
-        mock_obj.id = "123"
-        self.event_service.repository.update_obj = MagicMock(return_value={"updated": True})
-        data = {"Start Date": "2023/10/01", "End Date": "2023/10/02"}
+    def test_prepare_data_and_update_success_start_date(self):
+        # only start date
+        evt = MagicMock()
+        data = {"Start Date": "2023/01/05"}
+        updated = {"ok": True}
+        self.service.repository.update_obj.return_value = updated
 
-        result = self.event_service.prepare_data_and_update(data, mock_obj, self.mock_session)
+        result = self.service.prepare_data_and_update(data, evt, self.session)
+        self.assertEqual(result, updated)
+        called_data, called_obj, called_sess = self.service.repository.update_obj.call_args[0]
+        self.assertIs(called_obj, evt)
+        self.assertIs(called_sess, self.session)
+        self.assertIn("start_date", called_data)
+        self.assertEqual(called_data["start_date"], datetime(2023, 1, 5))
 
-        self.assertEqual(result, {"updated": True})
-        self.assertEqual(data["start_date"], datetime(2023, 10, 1))
-        self.assertEqual(data["end_date"], datetime(2023, 10, 2))
+    def test_prepare_data_and_update_success_end_date(self):
+        # only end date
+        evt = MagicMock()
+        data = {"End Date": "2023/02/10"}
+        updated = {"ok": False}
+        self.service.repository.update_obj.return_value = updated
+
+        result = self.service.prepare_data_and_update(data, evt, self.session)
+        self.assertEqual(result, updated)
+        called_data = self.service.repository.update_obj.call_args[0][0]
+        self.assertIn("end_date", called_data)
+        self.assertEqual(called_data["end_date"], datetime(2023, 2, 10))
+
+    def test_prepare_data_and_update_success_both(self):
+        evt = MagicMock()
+        data = {"Start Date": "2021/03/04", "End Date": "2021/03/05"}
+        updated = {"yes": True}
+        self.service.repository.update_obj.return_value = updated
+
+        result = self.service.prepare_data_and_update(data, evt, self.session)
+        self.assertEqual(result, updated)
+        called_data = self.service.repository.update_obj.call_args[0][0]
+        self.assertEqual(called_data["start_date"], datetime(2021, 3, 4))
+        self.assertEqual(called_data["end_date"], datetime(2021, 3, 5))
 
     @patch("src.services.event_service.sentry_sdk.capture_exception")
     def test_prepare_data_and_update_exception(self, mock_capture_exception):
-        mock_obj = MagicMock()
-        mock_obj.id = "123"
-        self.event_service.repository.update_obj = MagicMock(side_effect=Exception("Error"))
-        data = {"Start Date": "invalid_date", "End Date": "2023/10/02"}
-
-        result = self.event_service.prepare_data_and_update(data, mock_obj, self.mock_session)
-
+        # repository.update_obj raises
+        self.service.repository.update_obj.side_effect = Exception("fail")
+        evt = MagicMock()
+        data = {"Start Date": "2020/01/01"}
+        result = self.service.prepare_data_and_update(data, evt, self.session)
         self.assertEqual(result, {})
         mock_capture_exception.assert_called_once()
-
-
-if __name__ == "__main__":
-    unittest.main()

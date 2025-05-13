@@ -180,5 +180,5 @@ class UserController(BaseController):
             self.base_view.update_screen(self.history[-1])
         else:
             popup, buttons = self.base_view.create_message_popup("User already exists. Please try again.")
-            urwid.connect_signal(buttons[0], "click", lambda button: self.remove_popup())
+            urwid.connect_signal(buttons[0], "click", lambda button: self.handle_remove_popup())
             self.base_view.update_screen(popup)

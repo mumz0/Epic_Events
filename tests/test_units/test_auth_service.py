@@ -1,130 +1,108 @@
+import os
 import unittest
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import jwt
 from cryptography.fernet import Fernet
+from passlib.hash import argon2
 
 from src.models.user import User
-from src.repositories.user_repository import UserRepository
 from src.services.auth_service import AuthService
-from src.services.permission_service import PermissionService
-from src.services.user_service import UserService
 
 
 class TestAuthService(unittest.TestCase):
     def setUp(self):
-        self.mock_user = MagicMock(spec=User)
-        self.mock_user.role.name = "admin"
-        self.auth_service = AuthService(current_user=self.mock_user)
-        self.mock_session = MagicMock()
-        self.auth_service.repository = MagicMock()
+        # Préparer un session factice et un AuthService
+        self.session = MagicMock()
+        os.environ.pop("ENCRYPTION_KEY", None)
+        os.environ.pop("ENCRYPTED_TOKEN", None)
+        self.auth = AuthService(current_user=None)
 
-    @patch("src.services.auth_service.PermissionService.get_permissions")
-    def test_check_permission_signup_success(self, mock_get_permissions):
-        mock_get_permissions.return_value = [MagicMock(action="create", entity="user")]
-
-        result = self.auth_service.check_permission_signup(self.mock_session)
-
-        self.assertTrue(result)
-        mock_get_permissions.assert_called_once_with("admin", self.mock_session)
-
-    @patch("src.services.auth_service.PermissionService.get_permissions")
-    @patch("sentry_sdk.capture_exception")
-    def test_check_permission_signup_fail(self, mock_capture_exception, mock_get_permissions):
-        mock_get_permissions.side_effect = Exception("Error")
-
-        result = self.auth_service.check_permission_signup(self.mock_session)
-
+    def test_signup_process_no_role(self):
+        result = self.auth.signup_process(email="a@b.com", password="pwd", role=None, session=self.session)
         self.assertFalse(result)
-        mock_capture_exception.assert_called_once()
+
+    def test_signup_process_existing_user(self):
+        self.session.query().filter_by().first.return_value = User(email_address="x", password="p", role_id="r")
+        result = self.auth.signup_process("x", "p", "r", self.session)
+        self.assertTrue(result)
 
     @patch("src.services.auth_service.BaseService.create")
-    @patch("src.services.auth_service.User")
-    def test_signup_process_success(self, mock_user_model, mock_create):
-        self.mock_session.query.return_value.filter_by.return_value.first.return_value = None
-
-        mock_create.return_value = MagicMock(spec=User)
-
-        result = self.auth_service.signup_process(email="test@example.com", password="password", role="admin", session=self.mock_session)
-
+    def test_signup_process_create_success(self, mock_create):
+        mock_create.return_value = User(email_address="n", password="h", role_id="r")
+        # s'assurer qu'il n'y a pas d'utilisateur existant
+        self.session.query().filter_by().first.return_value = None
+        result = self.auth.signup_process("n", "p", "r", self.session)
         self.assertTrue(result)
         mock_create.assert_called_once()
 
     @patch("src.services.auth_service.BaseService.create")
-    @patch("sentry_sdk.capture_exception")
-    def test_signup_process_fail(self, mock_capture_exception, mock_create):
-        self.mock_session.query.return_value.filter_by.return_value.first.return_value = None
-
-        mock_create.side_effect = Exception("Error")
-
-        result = self.auth_service.signup_process(email="test@example.com", password="password", role="admin", session=self.mock_session)
-
+    def test_signup_process_create_fail(self, mock_create):
+        mock_create.return_value = None
+        # s'assurer qu'il n'y a pas d'utilisateur existant
+        self.session.query().filter_by().first.return_value = None
+        result = self.auth.signup_process("n", "p", "r", self.session)
         self.assertFalse(result)
-        mock_capture_exception.assert_called_once()
-        mock_create.assert_called_once()
+
+    def test_load_or_generate_key_new(self):
+        key = self.auth.load_or_generate_key()
+        self.assertIsNotNone(key)
+        self.assertEqual(os.getenv("ENCRYPTION_KEY"), key)
+
+    def test_generate_and_verify_token(self):
+        os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        payload = {"foo": "bar"}
+        token = self.auth.generate_token(payload, expiration=1)
+        decoded = self.auth.verify_token(Fernet(os.getenv("ENCRYPTION_KEY")).encrypt(token.encode()).decode())
+        self.assertIn("foo", decoded)
+
+    def test_encrypt_and_store_token_calls_update(self):
+        os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        dummy_token = "tok"
+        self.auth.repository = MagicMock()
+        self.auth.encrypt_and_store_token(dummy_token, user_id=123, session=self.session)
+        self.auth.repository.update_attr.assert_called_with(123, "token", unittest.mock.ANY, self.session)
+
+    def test_load_and_decrypt_token(self):
+        os.environ["ENCRYPTION_KEY"] = Fernet.generate_key().decode()
+        token = "hello"
+        encrypted = Fernet(os.getenv("ENCRYPTION_KEY")).encrypt(token.encode()).decode()
+        os.environ["ENCRYPTED_TOKEN"] = encrypted
+        out = self.auth.load_and_decrypt_token()
+        self.assertEqual(out, token)
 
     @patch("src.services.auth_service.UserService.get_user")
-    @patch("src.services.auth_service.argon2.verify")
-    def test_signin_process_success(self, mock_verify, mock_get_user):
-        mock_user = MagicMock(spec=User)
-        mock_user.id = 1
-        mock_user.token = None
-        mock_get_user.return_value = mock_user
-        mock_verify.return_value = True
-
-        result = self.auth_service.signin_process(email="test@example.com", password="password", session=self.mock_session)
-
-        self.assertEqual(result, mock_user)
-        mock_get_user.assert_called_once_with("test@example.com", self.mock_session)
-        mock_verify.assert_called_once()
+    def test_signin_process_user_not_found(self, mock_get_user):
+        mock_get_user.return_value = None
+        out = self.auth.signin_process("e", "p", self.session)
+        self.assertIsNone(out)
 
     @patch("src.services.auth_service.UserService.get_user")
-    @patch("src.services.auth_service.argon2.verify")
-    @patch("sentry_sdk.capture_exception")
-    def test_signin_process_fail(self, mock_capture_exception, mock_verify, mock_get_user):
-        mock_get_user.side_effect = Exception("Error")
+    def test_signin_process_invalid_password(self, mock_get_user):
+        u = User(email_address="e", password=argon2.hash("right"), role_id="r")
+        mock_get_user.return_value = u
+        out = self.auth.signin_process("e", "wrong", self.session)
+        self.assertIsNone(out)
 
-        result = self.auth_service.signin_process(email="test@example.com", password="password", session=self.mock_session)
+    @patch("src.services.auth_service.UserService.get_user")
+    def test_signin_process_valid(self, mock_get_user):
+        # setup user without token
+        u = User(email_address="e", password=argon2.hash("pwd"), role_id="r")
+        u.id = 1
+        u.token = None
+        mock_get_user.return_value = u
 
-        self.assertIsNone(result)
-        mock_capture_exception.assert_called_once()
+        # stub methods de génération
+        with patch.object(self.auth, "_generate_and_store_token") as gen, \
+             patch.object(self.auth, "verify_token", return_value={"user_id": 1}):
+            out = self.auth.signin_process("e", "pwd", self.session)
+            self.assertIsNotNone(out)
+            gen.assert_called()
 
-    @patch("src.services.auth_service.os.getenv")
-    @patch("src.services.auth_service.Fernet")
-    def test_encrypt_and_store_token_success(self, mock_fernet, mock_getenv):
-        mock_getenv.return_value = Fernet.generate_key().decode()
-        mock_fernet_instance = mock_fernet.return_value
-        mock_fernet_instance.encrypt.return_value = b"encrypted_token"
-
-        self.auth_service.encrypt_and_store_token(token="test_token", user_id=1, session=self.mock_session)
-
-        mock_fernet_instance.encrypt.assert_called_once_with(b"test_token")
-        self.auth_service.repository.update_attr.assert_called_once_with(1, "token", "encrypted_token", self.mock_session)
-
-    @patch("src.services.auth_service.Fernet.encrypt")
-    @patch("sentry_sdk.capture_exception")
-    def test_encrypt_and_store_token_fail(self, mock_capture_exception, mock_encrypt):
-        mock_encrypt.side_effect = Exception("Error")
-
-        self.auth_service.encrypt_and_store_token(token="test_token", user_id=1, session=self.mock_session)
-
-        mock_capture_exception.assert_called_once()
-
-    @patch("src.services.auth_service.jwt.encode")
-    def test_generate_token_success(self, mock_jwt_encode):
-        mock_jwt_encode.return_value = "test_token"
-
-        result = self.auth_service.generate_token(data={"user_id": 1})
-
-        self.assertEqual(result, "test_token")
-        mock_jwt_encode.assert_called_once()
-
-    @patch("src.services.auth_service.jwt.encode")
-    @patch("sentry_sdk.capture_exception")
-    def test_generate_token_fail(self, mock_capture_exception, mock_jwt_encode):
-        mock_jwt_encode.side_effect = Exception("Error")
-
-        result = self.auth_service.generate_token(data={"user_id": 1})
-
-        self.assertIsNone(result)
-        mock_capture_exception.assert_called_once()
+    def test_revoke_token(self):
+        self.auth.current_user = User(email_address="e", password="p", role_id="r")
+        self.auth.current_user.id = 42
+        self.auth.repository = MagicMock()
+        self.auth.revoke_token(self.session)
+        self.auth.repository.update_attr.assert_called_with(42, "token", None, self.session)

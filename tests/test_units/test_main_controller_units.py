@@ -1,29 +1,54 @@
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch, MagicMock, ANY
 
-from src.controllers.auth_controller import AuthController
-from src.controllers.base_controller import BaseController
+import urwid
+
 from src.controllers.main_controller import MainController
-
+from src.controllers.auth_controller import AuthController
 
 class TestMainController(unittest.TestCase):
     def setUp(self):
-        self.mock_session = MagicMock()
-        self.mock_base_view = MagicMock()
-        self.mock_current_user = MagicMock()
-        self.mock_history = []
-        self.controller = MainController(self.mock_session, self.mock_base_view, self.mock_current_user, self.mock_history)
+        self.session = MagicMock()
+        self.base_view = MagicMock()
+        self.base_view.loop = MagicMock()
+        self.current_user = MagicMock()
+        self.history = []
+        self.ctrl = MainController(self.session, self.base_view, self.current_user, self.history)
 
-    @patch("src.controllers.main_controller.AuthController")
-    @patch("src.controllers.main_controller.urwid.connect_signal")
-    @patch.object(BaseController, "__init__", return_value=None)
-    def test_connect_creates_menu_and_signals(self, mock_base_init, mock_connect_signal, mock_auth_ctrl):
-        # Return two items so buttons and layout can be unpacked
-        self.mock_base_view.create_menu_layout.return_value = ([MagicMock(), MagicMock()], MagicMock())
+    def test_run_application_calls_connect(self):
+        with patch.object(self.ctrl, 'connect') as mock_connect:
+            self.ctrl.run_application()
+            mock_connect.assert_called_once()
 
-        self.controller.connect()
+    @patch('src.controllers.main_controller.urwid.connect_signal')
+    @patch('src.controllers.main_controller.AuthController')
+    def test_connect_sets_up_menu_and_signals(self, mock_auth_cls, mock_connect_signal):
+        # Arrange: AuthController returns a dummy instance
+        auth_inst = MagicMock()
+        mock_auth_cls.return_value = auth_inst
+        # Arrange: create_menu_layout returns two buttons and a layout
+        btn0, btn1 = MagicMock(base_widget='w0'), MagicMock(base_widget='w1')
+        layout = MagicMock()
+        self.base_view.create_menu_layout.return_value = ([btn0, btn1], layout)
 
-        mock_auth_ctrl.assert_called_once_with(self.mock_session, self.mock_base_view, self.mock_current_user, self.mock_history)
-        self.mock_base_view.create_menu_layout.assert_called_once_with(">Welcome", ["Connect", "Quit"])
-        mock_connect_signal.assert_any_call(self.mock_base_view.create_menu_layout.return_value[0][0].base_widget, "click", unittest.mock.ANY)
-        mock_connect_signal.assert_any_call(self.mock_base_view.create_menu_layout.return_value[0][1].base_widget, "click", unittest.mock.ANY)
+        # Act
+        self.ctrl.connect()
+
+        # Assert AuthController was instantiated correctly
+        mock_auth_cls.assert_called_once_with(
+            self.session, self.base_view, self.current_user, self.history
+        )
+        # Assert menu layout creation
+        self.base_view.create_menu_layout.assert_called_once_with(
+            ">Welcome", ["Connect", "Quit"]
+        )
+        # Assert signals connected for both buttons
+        calls = mock_connect_signal.call_args_list
+        self.assertEqual(calls[0][0][0], btn0.base_widget)
+        self.assertEqual(calls[0][0][1], "click")
+        self.assertTrue(callable(calls[0][0][2]))
+        self.assertEqual(calls[1][0][0], btn1.base_widget)
+        self.assertEqual(calls[1][0][1], "click")
+        # Assert loop initialization and run
+        self.base_view.init_main_loop.assert_called_once_with(layout, ANY)
+        self.base_view.loop.run.assert_called_once()

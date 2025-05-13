@@ -1,205 +1,189 @@
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 
 import urwid
 
 from src.controllers.base_controller import BaseController
+from src.services.auth_service import AuthService
 from src.models.contract import Contract
 from src.models.event import Event
 
 
-# Helpers définis au niveau du module pour éviter d'imbriquer des fonctions
-def update_screen_side_effect(base_view, widget=None):
-    base_view.updated_widget = widget if widget is not None else base_view.loop.widget
+class DummyObj:
+    def __init__(self, id, email_address=None):
+        self.id = id
+        self.email_address = email_address
 
-
-def create_menu_layout_side_effect(title, labels):
-    buttons = []
-    for label in labels:
-        button = MagicMock()
-        button.base_widget = button
-        button.get_label.return_value = label
-        buttons.append(button)
-    layout = f"layout_for_{title}"
-    return buttons, layout
-
-
-def create_object_details_frame_side_effect(title, selected_object, buttons_labels):
-    frame = f"details_frame_{title}"
-    buttons = [MagicMock() for _ in buttons_labels]
-    return frame, buttons
-
-
-def create_pre_filled_form_page_side_effect(object_template, title):
-    edit = MagicMock()
-    edit.caption = "Field: "
-    edit.get_edit_text.return_value = object_template.get("Field", "")
-    return {"buttons": MagicMock(), "layout": f"pre_filled_layout_{title}", "edits": [edit]}
-
-
-def create_delete_confirmation_popup_layout_side_effect():
-    layout = "delete_confirmation_layout"
-    button_yes = MagicMock()
-    button_no = MagicMock()
-    return layout, [button_yes, button_no]
+    def get_identifier(self):
+        return f"ID{self.id}"
 
 
 class TestBaseController(unittest.TestCase):
-
-    def dummy_button_func(self):
-        self.func_called = True
-
-    # Ces méthodes serviront d'actions pour tester connect_button_signals.
-    def action1(self, button):
-        self.flag["btn1"] = True
-
-    def action2(self, button):
-        self.flag["btn2"] = True
-
     def setUp(self):
-        self.session = {}
-        self.current_user = "test_user"
-        self.history = []
+        self.session = MagicMock()
         self.base_view = MagicMock()
-        self.base_view.loop = MagicMock()
-        self.base_view.loop.widget = "initial_widget"
-        # Affectation des side_effects à l'aide des helpers externes
-        self.base_view.update_screen.side_effect = lambda widget=None: update_screen_side_effect(self.base_view, widget)
-        self.base_view.create_menu_layout.side_effect = create_menu_layout_side_effect
-        self.base_view.create_object_details_frame.side_effect = create_object_details_frame_side_effect
-        self.base_view.create_pre_filled_form_page.side_effect = create_pre_filled_form_page_side_effect
-        self.base_view.create_delete_confirmation_popup_layout.side_effect = create_delete_confirmation_popup_layout_side_effect
+        self.loop = MagicMock()
+        self.base_view.loop = self.loop
+        self.current_user = MagicMock()
+        self.history = []
+        self.ctrl = BaseController(self.session, self.base_view, self.current_user, self.history)
 
-        self.controller = BaseController(self.session, self.base_view, self.current_user, self.history)
+    @patch.object(AuthService, "revoke_token")
+    def test_handle_exit_click_revokes_and_exits(self, mock_revoke):
+        with patch('sys.exit') as mock_exit:
+            with self.assertRaises(SystemExit):
+                mock_exit.side_effect = SystemExit
+                self.ctrl.handle_exit_click()
+            mock_revoke.assert_called_once_with(self.session)
 
-    def test_handle_exit_click_calls_sys_exit(self):
-        with self.assertRaises(SystemExit):
-            self.controller.handle_exit_click()
+    @patch("urwid.connect_signal")
+    def test_show_exit_confirmation(self, mock_connect):
+        popup = MagicMock()
+        btn_yes = MagicMock()
+        btn_no = MagicMock()
+        self.base_view.create_exit_confirmation_view.return_value = (popup, [btn_yes, btn_no])
+        # call
+        self.ctrl.handle_exit_confirmation()
+        mock_connect.assert_any_call(btn_yes, "click", ANY)
+        mock_connect.assert_any_call(btn_no, "click", ANY)
+        self.assertIn(popup, self.history)
+        self.assertEqual(self.loop.widget, popup)
+        self.base_view.update_screen.assert_called_with(popup)
 
-    def test_cancel_popup_updates_screen_with_last_history(self):
-        self.history.extend(["screen1", "screen2"])
-        self.controller.cancel_popup()
-        self.assertEqual(self.history, ["screen1"])
-        self.assertEqual(self.base_view.updated_widget, "screen1")
 
-    def test_remove_popup_updates_screen_after_popping_two(self):
-        self.history.extend(["screen1", "screen2", "screen3"])
-        self.controller.remove_popup()
-        self.assertEqual(self.history, ["screen1"])
-        self.assertEqual(self.base_view.updated_widget, "screen1")
+    def test_cancel_popup(self):
+        w1, w2 = MagicMock(), MagicMock()
+        self.history.extend([w1, w2])
+        self.ctrl.handle_cancel_popup()
+        # should remove last and update to previous
+        self.base_view.update_screen.assert_called_once_with(w1)
 
-    def test_handle_button_pressed_executes_function(self):
-        self.func_called = False
-        self.controller.handle_button_pressed(self.dummy_button_func)
-        self.assertTrue(self.func_called)
+    def test_remove_popup(self):
+        w1, w2, w3 = MagicMock(), MagicMock(), MagicMock()
+        self.history.extend([w1, w2, w3])
+        self.ctrl.handle_remove_popup()
+        # removes two and updates to remaining
+        self.base_view.update_screen.assert_called_once_with(w1)
 
-    def test_handle_back_keypress_shows_exit_confirmation_when_at_root(self):
-        self.history.append("widget_root")
-        self.base_view.loop.widget = "widget_root"
-        with patch.object(self.controller, "show_exit_confirmation") as mock_exit_popup:
-            self.controller.handle_back_keypress("esc")
-            mock_exit_popup.assert_called_once()
+    def test_handle_button_pressed(self):
+        executed = []
+        def fn(): executed.append(True)
+        self.ctrl.handle_button_pressed(fn)
+        self.assertTrue(executed)
 
-    @patch("urwid.connect_signal", return_value=None)
-    def test_menu_updates_screen_and_history_when_title_contains_home(self, mock_connect_signal):
-        menu_items = [("Home Option", lambda: None), ("Other Option", lambda: None)]
-        title = "Home Menu"
-        self.controller.menu(title, menu_items)
-        self.assertTrue(self.history)
-        self.assertEqual(self.history[-1], f"layout_for_{title}")
-        self.assertEqual(self.base_view.updated_widget, f"layout_for_{title}")
+    def test_handle_back_keypress_exit(self):
+        # when at root, should call show_exit_confirmation
+        self.history.append("root")
+        self.loop.widget = "root"
+        with patch.object(self.ctrl, "show_exit_confirmation") as mock_show:
+            self.ctrl.handle_back_keypress("esc")
+            mock_show.assert_called_once()
 
-    def test_select_item_in_lst_returns_correct_object(self):
-        # Simulation d'objets avec un get_identifier
-        obj1 = MagicMock()
-        obj1.get_identifier.return_value = "item1"
-        obj1.id = "item1"
-        obj2 = MagicMock()
-        obj2.get_identifier.return_value = "item2"
-        obj2.id = "item2"
-        other = MagicMock()
-        other.email_address = "email@example.com"
-        found = self.controller.select_item_in_lst([obj1, obj2, other], "item2")
-        self.assertEqual(found, obj2)
-        not_found = self.controller.select_item_in_lst([obj1], "nonexistent")
-        self.assertIsNone(not_found)
+    def test_handle_back_keypress_back(self):
+        w1, w2 = MagicMock(), MagicMock()
+        self.history.extend([w1, w2])
+        self.loop.widget = w2
+        self.ctrl.handle_back_keypress("esc")
+        self.assertEqual(self.loop.widget, w1)
+        self.base_view.update_screen.assert_called_with(w1)
 
-    def test_object_details_layout_calls_create_details_frame_and_updates_screen(self):
-        selected_obj = MagicMock()
-        selected_obj.id = "item1"
-        buttons_labels = ["btn1", "btn2"]
-        frame, _ = self.base_view.create_object_details_frame("Detail Title", selected_obj, buttons_labels)
+    @patch("urwid.connect_signal")
+    def test_menu(self, mock_connect):
+        btn1, btn2 = MagicMock(), MagicMock()
+        layout = MagicMock()
+        self.base_view.create_menu_layout.return_value = ([btn1, btn2], layout)
+        # call menu with Home in title to push history
+        self.ctrl.menu("> Home", [("A", lambda: None), ("B", lambda: None)])
+        mock_connect.assert_any_call(btn1.base_widget, "click", ANY)
+        mock_connect.assert_any_call(btn2.base_widget, "click", ANY)
+        self.assertIn(layout, self.history)
+        self.base_view.update_screen.assert_called_with(layout)
+
+    def test_select_item_in_lst(self):
+        o1 = DummyObj("1"); o2 = DummyObj("2")
+        # id match
+        res = self.ctrl.select_item_in_lst([o1, o2], "2")
+        self.assertIs(res, o2)
+        # get_identifier match
+        res2 = self.ctrl.select_item_in_lst([o1, o2], "ID1")
+        self.assertIs(res2, o1)
+        # no match
+        self.assertIsNone(self.ctrl.select_item_in_lst([o1], "X"))
+
+    def test_object_details_layout(self):
+        # call underlying without token decorator
+        frame = MagicMock(); buttons = MagicMock()
+        self.base_view.create_object_details_frame.return_value = (frame, buttons)
         dummy_controller = MagicMock()
-        self.controller.object_details_layout("Detail Title", selected_obj, dummy_controller, buttons_labels)
+        BaseController.object_details_layout.__wrapped__(
+            self.ctrl, "> Title", DummyObj("X"), dummy_controller, ["b1"]
+        )
+        dummy_controller.create_details_view_buttons_signal.assert_called_once_with(buttons, ANY)
         self.assertIn(frame, self.history)
-        self.assertEqual(self.base_view.updated_widget, frame)
-        dummy_controller.create_details_view_buttons_signal.assert_called()
+        self.base_view.update_screen.assert_called_with(frame)
 
-    def test_pre_filled_form_page_updates_screen(self):
-        object_template = {"Field": "value"}
-        title = "Form Page"
-        with patch("urwid.connect_signal"):
-            self.controller.pre_filled_form_page(title, object_template, MagicMock(), MagicMock())
-            self.assertEqual(self.base_view.updated_widget, f"pre_filled_layout_{title}")
+    @patch("urwid.connect_signal")
+    def test_pre_filled_form_page(self, mock_connect):
+        layout_dict = {"buttons": MagicMock(), "edits": [], "layout": "LAY"}
+        self.base_view.create_pre_filled_form_page.return_value = layout_dict
+        self.ctrl.pre_filled_form_page("T", {}, MagicMock(), MagicMock())
+        mock_connect.assert_called_once()
+        self.base_view.update_screen.assert_called_once_with("LAY")
 
-    def test_handle_save_button_calls_service_with_correct_data(self):
-        dummy_edit = MagicMock()
-        dummy_edit.caption = "Name: "
-        dummy_edit.get_edit_text.return_value = "TestName"
-        edit_labels = [dummy_edit]
-        dummy_obj = MagicMock()
-        dummy_obj.id = "123"
-        service = MagicMock()
-        self.history.extend(["screen1", "screen2", "screen3"])
-        self.controller.handle_save_button(edit_labels, dummy_obj, service)
-        service.prepare_data_and_update.assert_called_once_with({"Name": "TestName"}, dummy_obj, self.session)
-        self.assertEqual(len(self.history), 1)
-        self.assertEqual(self.base_view.updated_widget, self.history[0])
+    def test_handle_save_button(self):
+        # prepare history and edits
+        e1 = MagicMock(caption="A: "); e1.get_edit_text.return_value = "v1"
+        e2 = MagicMock(caption="B: "); e2.get_edit_text.return_value = "v2"
+        self.history.extend(["first", "second", "third"])
+        svc = MagicMock()
+        obj = MagicMock()
+        self.ctrl.handle_save_button([e1, e2], obj, svc)
+        svc.prepare_data_and_update.assert_called_once_with({"A": "v1", "B": "v2"}, obj, self.session)
+        # pops twice, then update screen with first
+        self.base_view.update_screen.assert_called_with("first")
 
-    def test_show_delete_confirmation_updates_screen(self):
-        dummy_obj = MagicMock()
-        dummy_obj.id = "123"
-        service = MagicMock()
-        with patch("urwid.connect_signal") as mock_connect:
-            self.controller.show_delete_confirmation(dummy_obj, service)
-            self.assertEqual(self.base_view.updated_widget, "delete_confirmation_layout")
-            self.assertEqual(mock_connect.call_count, 2)
+    @patch("urwid.connect_signal")
+    def test_show_delete_confirmation(self, mock_connect):
+        popup = "POP"; btns = [MagicMock(), MagicMock()]
+        self.base_view.create_delete_confirmation_popup_layout.return_value = (popup, btns)
+        self.ctrl.show_delete_confirmation(DummyObj("X"), MagicMock())
+        mock_connect.assert_any_call(btns[0], "click", ANY)
+        mock_connect.assert_any_call(btns[1], "click", ANY)
+        self.base_view.update_screen.assert_called_with(popup)
 
-    def test_handle_confirmation_delete_calls_service_and_removes_popup(self):
-        service = MagicMock()
-        self.history.extend(["screen1", "screen2", "screen3"])
-        self.controller.handle_confirmation_delete("123", service)
-        service.delete.assert_called_once_with("123", self.session)
-        self.assertEqual(len(self.history), 1)
+    def test_handle_confirmation_delete(self):
+        svc = MagicMock()
+        obj_id = "OID"
+        with patch.object(self.ctrl, "remove_popup") as mock_rm:
+            self.ctrl.handle_confirmation_delete(obj_id, svc)
+            svc.delete.assert_called_once_with(obj_id, self.session)
+            mock_rm.assert_called_once()
 
-    def test_get_button_data_for_items_returns_ids_or_email_address(self):
-        contract = MagicMock(spec=Contract)
-        contract.id = "contract1"
-        event = MagicMock(spec=Event)
-        event.id = "event1"
-        other = MagicMock()
-        other.email_address = "other@example.com"
-        result = self.controller.get_button_data_for_items([contract, event, other])
-        self.assertEqual(result, ["contract1", "event1", "other@example.com"])
+    def test_get_button_data_for_items(self):
+        c = Contract(id="C1")
+        e = Event(id="E1")
+        u = DummyObj("U", email_address="u@mail")
+        res = self.ctrl.get_button_data_for_items([c, e, u])
+        self.assertEqual(res, ["C1", "E1", "u@mail"])
 
-    def test_connect_button_signals_with_dict_and_list(self):
-        btn1 = MagicMock()
-        btn1.get_label.return_value = "btn1"
-        btn2 = MagicMock()
-        btn2.get_label.return_value = "btn2"
-        buttons_dict = {"other_buttons": [btn1, btn2]}
-        self.flag = {"btn1": False, "btn2": False}
-        button_actions = [("btn1", self.action1), ("btn2", self.action2)]
-        with patch("urwid.connect_signal") as mock_connect:
-            self.controller.connect_button_signals(buttons_dict, button_actions)
-            self.assertEqual(mock_connect.call_count, 2)
-        btn3 = MagicMock()
-        btn3.get_label.return_value = "btn3"
-        btn4 = MagicMock()
-        btn4.get_label.return_value = "btn4"
-        buttons_list = [btn3, btn4]
-        button_actions = [("btn3", self.action1), ("btn4", self.action2)]
-        with patch("urwid.connect_signal") as mock_connect_list:
-            self.controller.connect_button_signals(buttons_list, button_actions)
-            self.assertEqual(mock_connect_list.call_count, 2)
+    @patch("urwid.connect_signal")
+    def test_connect_button_signals_list(self, mock_connect):
+        # create buttons with get_label
+        b1 = MagicMock(); b1.get_label.return_value = "L1"
+        b2 = MagicMock(); b2.get_label.return_value = "L2"
+        actions = [("L1", lambda: 1), ("L2", lambda x: x)]
+        self.ctrl.connect_button_signals([b1, b2], actions)
+        # should connect both
+        self.assertEqual(mock_connect.call_count, 2)
+
+    @patch("urwid.connect_signal")
+    def test_connect_button_signals_dict(self, mock_connect):
+        b1 = MagicMock(); b1.get_label.return_value = "X"
+        buttons = {"other_buttons": [b1]}
+        action = [("X", lambda: None)]
+        self.ctrl.connect_button_signals(buttons, action)
+        mock_connect.assert_called_once()
+        # wrong type raises
+        with self.assertRaises(TypeError):
+            self.ctrl.connect_button_signals(123, [])

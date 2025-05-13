@@ -36,19 +36,19 @@ class BaseController:
             AuthService(self.current_user).revoke_token(self.session)
         sys.exit()
 
-    def show_exit_confirmation(self):
+    def handle_exit_confirmation(self):
         """
         Displays a pop-up asking for exit confirmation.
         """
         popup, buttons = self.base_view.create_exit_confirmation_view()
         urwid.connect_signal(buttons[0], "click", lambda button: self.handle_exit_click())
-        urwid.connect_signal(buttons[1], "click", lambda button: self.cancel_popup())
+        urwid.connect_signal(buttons[1], "click", lambda button: self.handle_cancel_popup())
 
-        self.history.append(self.base_view.loop.widget)
+        self.history.append(popup)
         self.base_view.loop.widget = popup
         self.base_view.update_screen(self.base_view.loop.widget)
 
-    def cancel_popup(self):
+    def handle_cancel_popup(self):
         """
         Removes the pop-up and returns to the previous screen.
         """
@@ -56,7 +56,7 @@ class BaseController:
             self.history.pop()
             self.base_view.update_screen(self.history[-1])
 
-    def remove_popup(self):
+    def handle_remove_popup(self):
         """
         Removes the pop-up and returns to the previous screen.
         """
@@ -83,14 +83,14 @@ class BaseController:
         :type key: str
         """
         if self.base_view.loop.widget == self.history[0]:
-            self.show_exit_confirmation()
+            self.handle_exit_confirmation()
             return
-        if key == "esc" and self.history:
-            self.base_view.loop.widget = self.history.pop()
-            if self.history:
-                self.base_view.update_screen(self.history[-1])
-            else:
-                self.base_view.update_screen(self.base_view.loop.widget)
+
+        if key == "esc" and len(self.history) > 1:
+            self.history.pop()
+            prev = self.history[-1]
+            self.base_view.loop.widget = prev
+            self.base_view.update_screen(prev)
 
     def menu(self, title, menu_items):
         """
@@ -187,7 +187,7 @@ class BaseController:
         layout, buttons = self.base_view.create_delete_confirmation_popup_layout()
 
         urwid.connect_signal(buttons[0], "click", lambda button: self.handle_confirmation_delete(obj.id, service))
-        urwid.connect_signal(buttons[1], "click", lambda button: self.cancel_popup())
+        urwid.connect_signal(buttons[1], "click", lambda button: self.handle_cancel_popup())
 
         # self.history.append(layout)
         self.base_view.update_screen(layout)
@@ -202,7 +202,7 @@ class BaseController:
         :type service: BaseService
         """
         service.delete(object_id, self.session)
-        self.remove_popup()
+        self.handle_remove_popup()
 
     def get_button_data_for_items(self, objs):
         """
