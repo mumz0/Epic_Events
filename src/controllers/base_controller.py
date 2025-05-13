@@ -4,10 +4,13 @@ BaseController is an abstract base class that provides common functionality for 
 
 import sys
 
+import sentry_sdk
 import urwid
 
+from src.services.auth_service import AuthService
 from src.models.contract import Contract
 from src.models.event import Event
+from utils.decorators import require_valid_token
 
 
 class BaseController:
@@ -23,65 +26,25 @@ class BaseController:
         self.current_user = current_user
         self.history = history
 
-    # def show_expired_token_popup(self):
-    #     """
-    #     Displays a popup indicating that the user's session has expired and prompts them to reconnect.
-
-    #     This method creates a popup with a messageand an "OK" button. When the button is pressed,
-    #     it triggers the `handle_login` method to handle the reconnection process. The popup is then
-    #     displayed on the base view's screen.
-    #     """
-    #     body = urwid.Text("Votre session a expiré. Veuillez vous reconnecter.")
-    #     button = urwid.Button("OK", on_press=self.handle_login)
-    #     popup = urwid.Filler(urwid.Pile([body, button]))
-    #     self.base_view.loop.widget = popup
-    #     self.base_view.update_screen()
-
-    # def is_token_avaible(self):
-    #     """
-    #     Checks if the current user's token is available and valid.
-    #     This method uses the AuthService to verify the token of the current user.
-    #     If the token is not valid, it triggers a popup to notify the user about the expired token.
-    #     :return: Always returns True.
-    #     :rtype: bool
-    #     """
-    #     auth_service = AuthService(self.current_user)
-    #     if not auth_service.verify_token():
-    #         self.show_expired_token_popup()
-    #     return True
-
     def handle_exit_click(self):
         """
         Handles the event when the exit button is clicked.
         This method will terminate the application.
         """
+
+        if self.current_user is not None:
+            AuthService(self.current_user).revoke_token(self.session)
         sys.exit()
 
-    # TODO: CREATE LAYOUT IN VIEW NOT HERE
     def show_exit_confirmation(self):
         """
         Displays a pop-up asking for exit confirmation.
         """
-        yes_button = urwid.Button("Yes")
-        no_button = urwid.Button("No")
+        popup, buttons = self.base_view.create_exit_confirmation_view()
+        urwid.connect_signal(buttons[0], "click", lambda button: self.handle_exit_click())
+        urwid.connect_signal(buttons[1], "click", lambda button: self.cancel_popup())
 
-        urwid.connect_signal(yes_button, "click", lambda button: self.handle_exit_click())
-        urwid.connect_signal(no_button, "click", lambda button: self.cancel_popup())
-
-        pile = urwid.Pile([urwid.Text("Do you really want to exit?"), urwid.Columns([yes_button, no_button])])
-
-        popup = urwid.Overlay(
-            urwid.LineBox(pile),
-            self.base_view.loop.widget,
-            align="center",
-            width=("relative", 50),
-            valign="middle",
-            height=("relative", 20),
-        )
-
-        # Ajouter le pop-up à l'historique
         self.history.append(self.base_view.loop.widget)
-
         self.base_view.loop.widget = popup
         self.base_view.update_screen(self.base_view.loop.widget)
 
@@ -172,6 +135,7 @@ class BaseController:
                 break
         return selected_object
 
+    @require_valid_token
     def object_details_layout(self, title, selected_object, controller, buttons_labels):
         """
         Creates and displays the layout for object details.

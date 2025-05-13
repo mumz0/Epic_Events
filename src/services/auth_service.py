@@ -13,7 +13,6 @@ from passlib.hash import argon2
 from src.models.user import User
 from src.repositories.user_repository import UserRepository
 from src.services.base_service import BaseService
-from src.services.permission_service import PermissionService
 from src.services.user_service import UserService
 
 
@@ -28,26 +27,7 @@ class AuthService(BaseService):
     def __init__(self, current_user):
         super().__init__(User, UserRepository())
         self.current_user = current_user
-
-    def check_permission_signup(self, session):
-        """
-        Checks if the current user has permission to sign up a new user.
-
-        :param session: The database session.
-        :type session: Session
-        :return: True if the user has permission, False otherwise.
-        :rtype: bool
-        """
-        try:
-            user_role_name = self.current_user.role.name
-            role_permissions = PermissionService().get_permissions(user_role_name, session)
-            return any(role_permission.action == "create" and role_permission.entity == "user" for role_permission in role_permissions)
-        except Exception as e:
-            error_message = "Error checking signup permission"
-            sentry_sdk.capture_exception(e)
-            print(error_message)
-            return False
-
+        
     def signup_process(self, email: str, password: str, role: str, session):
         """
         Handles the signup process for a new user.
@@ -97,28 +77,46 @@ class AuthService(BaseService):
         """
         try:
             user = UserService().get_user(email, session)
-            if not user or not argon2.verify(password, user.password):
+            if not user:
+                sentry_sdk.capture_message("User not found")
+                return None
+            if not argon2.verify(password, user.password):
+                sentry_sdk.capture_message("Invalid password")
                 return None
 
             self.current_user = user
             data = {"user_id": user.id}
 
-            if os.getenv("ENCRYPTED_TOKEN") is None or user.token is None:
+            # Check if the token exists; otherwise, generate a new token
+            if not user.token:
                 self._generate_and_store_token(data, user.id, session)
-            self.verify_token(user.token)
-        except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
-            error_message = "Token verification failed"
-            sentry_sdk.capture_exception(e)
-            sentry_sdk.capture_message(error_message)
-            self._generate_and_store_token(data, user.id, session)
-            self.verify_token(user.token)
+                user = session.query(User).get(user.id)
+                self.current_user = user
+
+            # Verify the token (decrypting + decoding JWT)
+            try:
+                payload = self.verify_token(user.token)
+                if not payload:
+                    raise jwt.InvalidTokenError("Token verification failed")
+            except (jwt.ExpiredSignatureError, jwt.InvalidTokenError) as e:
+                sentry_sdk.capture_exception(e)
+                sentry_sdk.capture_message("Token expired or invalid, regenerating token")
+                self._generate_and_store_token(data, user.id, session)
+                user = session.query(User).get(user.id)
+                self.current_user = user
+                # Vérify new token
+                payload = self.verify_token(user.token)
+                if not payload:
+                    sentry_sdk.capture_message("New token verification failed")
+                    return None
+
+            return self.current_user
+
         except Exception as e:
             error_message = "Error during signin process"
             sentry_sdk.capture_exception(e)
             sentry_sdk.capture_message(error_message)
             return None
-
-        return self.current_user
 
     def _generate_and_store_token(self, data, user_id, session):
         """
@@ -157,7 +155,7 @@ class AuthService(BaseService):
             sentry_sdk.capture_message(error_message)
             return None
 
-    def generate_token(self, data, expiration=3600):
+    def generate_token(self, data, expiration=20):
         """
         Generates a JWT token.
 
@@ -214,8 +212,9 @@ class AuthService(BaseService):
             sentry_sdk.capture_exception(e)
             sentry_sdk.capture_message(error_message)
             return None
-
-    def verify_token(self, token):
+    
+    @staticmethod
+    def verify_token(token):
         """
         Verifies the JWT token.
 
@@ -243,3 +242,9 @@ class AuthService(BaseService):
             error_message = "Error generating new encryption key"
             sentry_sdk.capture_exception(e)
             sentry_sdk.capture_message(error_message)
+    
+    def revoke_token(self, session):
+        """
+        Removes the authentication token from the database for the given user.
+        """
+        self.repository.update_attr(self.current_user.id, "token", None, session)

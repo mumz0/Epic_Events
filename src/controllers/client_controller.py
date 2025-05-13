@@ -13,6 +13,7 @@ from src.services.base_service import BaseService
 from src.services.client_service import ClientService
 from src.services.user_service import UserService
 from src.views.paginated_view import PaginatedView
+from utils.decorators import require_valid_token
 
 
 class ClientController(BaseController):
@@ -36,6 +37,7 @@ class ClientController(BaseController):
         """
         super().__init__(session, base_view, current_user, history)
 
+    @require_valid_token
     def all_clients(self):
         """
         Fetch and display all clients in a paginated view.

@@ -3,6 +3,8 @@
     This module contains the AuthController class, which is responsible for handling the authentication process.
 """
 
+import logging
+import sentry_sdk
 import urwid
 
 from src.controllers.base_controller import BaseController
@@ -35,17 +37,6 @@ class AuthController(BaseController):
         email, password = BaseView().admin_signup_view()
         AuthService(None).signup_process(email, password, admin_role_obj.name, self.session)
 
-    # def signup(self):
-    #     """Handles the signup process for a new user."""
-    #     if not AuthService(self.current_user).check_permission_signup(self.session):
-    #         print("Permission denied.")
-    #         return
-
-    #     roles = RoleService().get_all(self.session)
-    #     email, password, selected_role = AuthView().signup(roles)
-    #     AuthService(self.current_user).signup_process(email, password, selected_role, self.session)
-    #     print("Has permission.")
-
     def signin(self):
         """
         Handles the sign-in process for the user.
@@ -67,8 +58,40 @@ class AuthController(BaseController):
             layout_dict["buttons"][0],
             "click",
             lambda button: self.handle_auth_form_button_event(
-                layout_dict,
-                self.menu(
+                layout_dict)
+            ),
+
+
+        # Update the screen with the new layout
+        self.base_view.update_screen(layout_dict["layout"])
+
+    def show_expired_token_popup(self):
+        """
+        Displays a popup indicating that the user's session has expired and prompts them to reconnect.
+
+        This method creates a popup with a message and an "OK" button. When the button is pressed,
+        it triggers the `signin` method to handle the reconnection process. The popup is then
+        displayed on the base view's screen.
+        """
+        popup, button = self.base_view.create_expired_token_popup()
+        urwid.connect_signal(button, "click", lambda btn: self.signin())
+
+        self.base_view.loop.widget = popup
+        self.base_view.update_screen(popup)
+            
+    def handle_auth_form_button_event(self, layout_dict):
+        """
+        Handles the sign-in button press event by processing the provided email and password.
+        :param email: The email address entered by the user.
+        :type email: str
+        :param password: The password entered by the user.
+        :type password: str
+        """
+        self.current_user = AuthService(self.current_user).signin_process(
+            layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), self.session
+        )
+        sentry_sdk.capture_message(f"handle_auth_form_button_event: {str(self.current_user.id)}")
+        self.menu(
                     "> Home",
                     [
                         ("Users", lambda: UserController(self.session, self.base_view, self.current_user, self.history).all_users()),
@@ -85,42 +108,10 @@ class AuthController(BaseController):
                                 "> Home > Events", "all"
                             ),
                         ),
+                        (
+                            "Exit",
+                            lambda: BaseController(self.session, self.base_view, self.current_user, self.history).show_exit_confirmation()
+                        ),
                     ],
                 ),
-            ),
-        )
-
-        # Update the screen with the new layout
-        self.base_view.update_screen(layout_dict["layout"])
-
-    def handle_auth_form_button_event(self, layout_dict, redirect_func):
-        """
-        Handles the sign-in button press event by processing the provided email and password.
-        :param email: The email address entered by the user.
-        :type email: str
-        :param password: The password entered by the user.
-        :type password: str
-        """
-        self.current_user = AuthService(self.current_user).signin_process(
-            layout_dict["edits"][0].get_edit_text(), layout_dict["edits"][1].get_edit_text(), self.session
-        )
-
-        if self.current_user:
-            redirect_func
-        else:
-            self.base_view.display_message("Signin failed. Please try again.")
-
-    def authentication_process(self):
-        """
-        Handles the authentication process for the user.
-        This method attempts to sign in the user by calling the `signin` method.
-        If the sign-in is successful, it sets the `current_user` attribute to the
-        signed-in user and displays a success message. If the sign-in fails, it
-        displays a failure message.
-
-        """
-        self.signin()
-        if self.current_user:
-            self.base_view.display_message("Signin successful.")
-        else:
-            self.base_view.display_message("Signin failed.")
+        
